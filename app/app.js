@@ -120,7 +120,14 @@ const COLUMNS = [
   { key: "notes", label: "Notes" },
 ];
 const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
-const DEFAULT_COLUMNS = ["family_name", "people", "party", "affiliation", "rsvp", "invite_status", "live_in_town", "hotel_status", "state"];
+// Column presets ("views"). The first one is the default.
+const VIEWS = [
+  { name: "RSVPs", cols: ["family_name", "people", "party", "attending", "affiliation", "rsvp", "invite_status", "rd_invited", "rd_status", "notes"] },
+  { name: "Seating", cols: ["family_name", "people", "attending", "affiliation", "rsvp", "table_status", "table_number", "notes"] },
+  { name: "Hotel", cols: ["family_name", "attending", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation"] },
+  { name: "Gifts", cols: ["family_name", "attending", "affiliation", "rsvp", "gift", "thank_you_sent", "notes", "address", "city", "state", "zip"] },
+];
+const DEFAULT_COLUMNS = VIEWS[0].cols;
 
 // Filters above the list. Person-level filters match a family when ANY of its
 // people match, and also narrow which people go into the People export.
@@ -305,7 +312,7 @@ const state = {
   people: [],
   filters: store("filters") || {},
   search: "",
-  columns: (store("columns") || DEFAULT_COLUMNS).filter((k) => COL[k]),
+  columns: (store("columns-v2") || DEFAULT_COLUMNS).filter((k) => COL[k]),
   sort: store("sort") || { key: "family_name", dir: 1 },
   showFilters: false,
   bulk: false,
@@ -539,11 +546,20 @@ function renderFilters() {
     }).join("") + (n ? `<button class="linkish" id="clear-filters">Clear filters</button>` : "");
 }
 
+function renderViews() {
+  const cur = state.columns.join(",");
+  const match = VIEWS.find((v) => v.cols.join(",") === cur);
+  $("#views").innerHTML =
+    VIEWS.map((v) => `<button type="button" class="vbtn ${v === match ? "on" : ""}" data-view="${esc(v.name)}">${esc(v.name)}</button>`).join("") +
+    (match ? "" : `<span class="vbtn custom on" title="You've changed the columns">Custom</span>`);
+}
+
 function renderColumnPicker() {
+  renderViews();
   $("#column-list").innerHTML =
     COLUMNS.map(
       (c) => `<label><input type="checkbox" data-col="${c.key}" ${state.columns.includes(c.key) ? "checked" : ""} ${c.fixed ? "disabled" : ""}> ${esc(c.label)}</label>`
-    ).join("") + `<button class="linkish" id="reset-cols">Reset to defaults</button>`;
+    ).join("") + `<button class="linkish" id="reset-cols">Reset to ${esc(VIEWS[0].name)} view</button>`;
 }
 
 // ---------- Inputs ----------
@@ -851,7 +867,7 @@ function wire() {
     } else if (el.dataset.col) {
       const k = el.dataset.col;
       state.columns = el.checked ? COLUMNS.map((c) => c.key).filter((x) => x === k || state.columns.includes(x)) : state.columns.filter((x) => x !== k);
-      store("columns", state.columns);
+      store("columns-v2", state.columns);
       render();
     } else if (el.dataset.sel) {
       const id = Number(el.dataset.sel);
@@ -875,9 +891,15 @@ function wire() {
       store("filters", state.filters);
       return render();
     }
+    const viewBtn = t.closest("[data-view]");
+    if (viewBtn) {
+      state.columns = [...VIEWS.find((v) => v.name === viewBtn.dataset.view).cols];
+      store("columns-v2", state.columns);
+      return render();
+    }
     if (t.closest("#reset-cols")) {
       state.columns = [...DEFAULT_COLUMNS];
-      store("columns", state.columns);
+      store("columns-v2", state.columns);
       return render();
     }
     const sortBtn = t.closest("[data-sort]");

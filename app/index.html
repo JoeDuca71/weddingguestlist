@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Guest List">
+  <meta name="theme-color" content="#17121f">
+  <title>Wedding Guest List</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪩</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="login" class="login" hidden>
+    <form id="login-form" class="login-card">
+      <div class="ring">🪩</div>
+      <h1>Guest List</h1>
+      <p class="tagline">Til Death Do We Disco</p>
+      <p class="muted">Sign in with your email. We'll send you a link.</p>
+      <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" required>
+      <button class="btn primary" type="submit">Email me a sign-in link</button>
+      <div id="code-box" hidden>
+        <p class="muted">Check your email and tap the link. If the email has a 6-digit code, you can enter it here instead.</p>
+        <input id="login-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456">
+        <button class="btn" type="button" id="verify-code">Sign in with code</button>
+      </div>
+      <p id="login-msg" class="msg" role="status"></p>
+    </form>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">🪩 <span>Guest List</span></div>
+      <div class="top-actions">
+        <button class="btn primary" id="add-family">+ Family</button>
+        <details class="menu">
+          <summary class="btn" aria-label="More">☰</summary>
+          <div class="menu-pop">
+            <div class="menu-who" id="who"></div>
+            <button id="sign-out">Sign out</button>
+          </div>
+        </details>
+      </div>
+    </header>
+
+    <main>
+      <section class="stats" id="stats"></section>
+
+      <div class="navrow">
+        <input id="search" type="search" placeholder="🔍 Search names, emails, cities…" aria-label="Search guests">
+        <span class="count muted" id="count"></span>
+        <div class="nav-actions">
+          <button class="btn" id="toggle-filters">Filters</button>
+          <button class="btn" id="bulk-toggle" title="Select several families and change one field on all of them">Multi-edit</button>
+          <details class="colpick menu">
+            <summary class="btn">Columns</summary>
+            <div class="menu-pop" id="column-list"></div>
+          </details>
+          <button class="btn" id="export" title="Exports exactly what's shown, with your filters and columns">Export</button>
+        </div>
+      </div>
+      <div class="filters" id="filters"></div>
+      <div id="list"></div>
+    </main>
+    <div class="bulkbar" id="bulkbar" hidden></div>
+  </div>
+
+  <dialog id="family-dialog" class="sheet wide">
+    <form method="dialog" id="family-form"></form>
+  </dialog>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="vendor/xlsx.mini.min.js" defer></script>
+  <script src="demo-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

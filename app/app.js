@@ -402,7 +402,7 @@ const visiblePeople = (fams) => fams.flatMap((f) => f.people.filter(personMatche
 
 function render() {
   const fams = visibleFamilies();
-  renderStats(fams);
+  renderStats();
   renderFilters();
   renderColumnPicker();
   renderList(fams);
@@ -461,38 +461,58 @@ function tally(people, key, weightKey) {
   for (const p of people) out[p[key]] = (out[p[key]] || 0) + (Number(p[weightKey]) || 0);
   return out;
 }
-function renderStats(fams) {
-  const people = visiblePeople(fams);
-  const r = tally(people, "rsvp", "invited");
-  const invited = sum(people, "invited");
-  const rdPeople = people.filter((p) => Number(p.rd_invited) > 0);
-  const rd = tally(rdPeople, "rd_status", "rd_invited");
-  const rdInvited = sum(rdPeople, "rd_invited");
-  const hotelYes = fams.filter((f) => f.hotel_status === "Yes Host Hotel").length;
-  const hotelMaybe = fams.filter((f) => f.hotel_status === "Maybe Host Hotel").length;
-  const ap = tally(people, "afterparty", "invited");
+// Each stat ignores its own filter, so clicking "25 yes" doesn't turn the rest of that card into zeros.
+function withoutFilter(key, fn) {
+  const saved = state.filters;
+  state.filters = { ...saved, [key]: [] };
+  try {
+    return fn(visibleFamilies());
+  } finally {
+    state.filters = saved;
+  }
+}
+function renderStats() {
   const n = (v) => v || 0;
+  const on = (key, val) => state.filters[key]?.length === 1 && state.filters[key][0] === val;
+  // A number you can click to filter the list to that value (click again to clear).
+  const chip = (key, val, count, label, big) =>
+    `<button type="button" class="sv ${big ? "big" : ""} ${on(key, val) ? "on" : ""}" data-stat="${key}" data-val="${esc(val)}" title="Show only ${esc(label)}">${count}<small> ${esc(label)}</small></button>`;
+
+  const rsvp = withoutFilter("rsvp", (fams) => {
+    const people = visiblePeople(fams);
+    return { t: tally(people, "rsvp", "invited"), invited: sum(people, "invited") };
+  });
+  const rd = withoutFilter("rd_status", (fams) => {
+    const people = visiblePeople(fams).filter((p) => Number(p.rd_invited) > 0);
+    return { t: tally(people, "rd_status", "rd_invited"), invited: sum(people, "rd_invited") };
+  });
+  const hotel = withoutFilter("hotel_status", (fams) => ({
+    yes: fams.filter((f) => f.hotel_status === "Yes Host Hotel").length,
+    maybe: fams.filter((f) => f.hotel_status === "Maybe Host Hotel").length,
+  }));
+  const ap = withoutFilter("afterparty", (fams) => tally(visiblePeople(fams), "afterparty", "invited"));
   const filtered = activeFilterCount() || state.search;
+  const rest = (key, t, vals) => vals.map(([v, l]) => chip(key, v, n(t[v]), l)).join(" · ");
   $("#stats").innerHTML = `
     <div class="stat s-rsvp">
       <span>RSVP${filtered ? " (this view)" : ""}</span>
-      <strong>${n(r.Yes)} <small>yes of ${invited} invited</small></strong>
-      <em>${n(r.No)} no · ${n(r.Maybe)} maybe · ${n(r.TBD)} TBD</em>
+      <strong>${chip("rsvp", "Yes", n(rsvp.t.Yes), "yes", true)} <small>of ${rsvp.invited} invited</small></strong>
+      <em>${rest("rsvp", rsvp.t, [["No", "no"], ["Maybe", "maybe"], ["TBD", "TBD"]])}</em>
     </div>
     <div class="stat s-rd">
       <span>Rehearsal dinner</span>
-      <strong>${n(rd.Yes)} <small>yes of ${rdInvited} invited</small></strong>
-      <em>${n(rd.No)} no · ${n(rd.Maybe)} maybe · ${n(rd.TBD)} TBD</em>
+      <strong>${chip("rd_status", "Yes", n(rd.t.Yes), "yes", true)} <small>of ${rd.invited} invited</small></strong>
+      <em>${rest("rd_status", rd.t, [["No", "no"], ["Maybe", "maybe"], ["TBD", "TBD"]])}</em>
     </div>
     <div class="stat s-hotel">
       <span>Host Hotel (families)</span>
-      <strong>${hotelYes} <small>yes</small> · ${hotelMaybe} <small>maybe</small></strong>
-      <em>${hotelYes + hotelMaybe} rooms if every maybe comes</em>
+      <strong>${chip("hotel_status", "Yes Host Hotel", hotel.yes, "yes", true)} · ${chip("hotel_status", "Maybe Host Hotel", hotel.maybe, "maybe", true)}</strong>
+      <em>${hotel.yes + hotel.maybe} rooms if every maybe comes</em>
     </div>
     <div class="stat s-ap">
       <span>After-party</span>
-      <strong>${n(ap.Yes)} <small>yes</small></strong>
-      <em>${n(ap.Maybe)} maybe · ${n(ap.No)} no · ${n(ap.Unknown)} unknown</em>
+      <strong>${chip("afterparty", "Yes", n(ap.Yes), "yes", true)}</strong>
+      <em>${rest("afterparty", ap, [["Maybe", "maybe"], ["No", "no"], ["Unknown", "unknown"]])}</em>
     </div>`;
 }
 
@@ -865,6 +885,14 @@ function wire() {
       const k = sortBtn.dataset.sort;
       state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : 1 };
       store("sort", state.sort);
+      return render();
+    }
+    const statBtn = t.closest("[data-stat]");
+    if (statBtn) {
+      const { stat, val } = statBtn.dataset;
+      const cur = state.filters[stat] || [];
+      state.filters[stat] = cur.length === 1 && cur[0] === val ? [] : [val];
+      store("filters", state.filters);
       return render();
     }
     if (t.closest("#bulk-apply")) return applyBulk();

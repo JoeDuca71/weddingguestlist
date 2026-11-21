@@ -352,3 +352,11 @@ body.bulk .toast { bottom: 96px; }
   body.bulk main { padding-bottom: 220px; }
 }
 .add-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Clickable stat numbers filter the list. */
+.sv { border: 0; background: none; padding: 1px 4px; margin: 0 -4px; border-radius: 6px; cursor: pointer; font: inherit; color: inherit; }
+.sv small { font-size: inherit; }
+.sv.big small { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--muted); }
+.sv:hover { background: var(--accent-soft); color: var(--accent); }
+.sv.on { background: var(--accent); color: #fff; }
+.sv.on small { color: #fff; }

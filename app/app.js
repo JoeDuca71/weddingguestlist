@@ -4,10 +4,10 @@
 
 const OPT = {
   rsvp: ["TBD", "Yes", "No", "Maybe"],
-  afterparty: ["Unknown", "Yes", "No"],
+  afterparty: ["Unknown", "Yes", "Maybe", "No"],
   table_status: ["Need to Seat", "Seated", "n/a"],
   affiliation: ["Dylan Family", "Dylan Friends", "Joe Family", "Joe Friends", "Mutual"],
-  invite_status: ["Not Contacted", "Texted for Address", "Postcard Sent", "Texted for RSVP", "Done"],
+  invite_status: ["Not Contacted", "Need to Text for Address", "Texted for Address", "Emailed", "Postcard Sent", "Texted for RSVP", "Done"],
   yesno: ["Yes", "No"],
   hotel_status: ["Unknown", "Maybe Host Hotel", "Yes Host Hotel", "Yes Tracey BnB", "Yes Other Home", "n/a"],
   hotel_swag: ["Need to Do", "Done", "Delivered", "n/a"],
@@ -131,6 +131,7 @@ const FILTERS = [
   { key: "live_in_town", label: "In town?", options: OPT.yesno, blank: true },
   { key: "invite_status", label: "Invite status", options: OPT.invite_status },
   { key: "hotel_status", label: "Hotel", options: OPT.hotel_status },
+  { key: "rd_inv", label: "Rehearsal invited", person: true, options: OPT.yesno, get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
   { key: "rd_status", label: "Rehearsal RSVP", person: true, options: OPT.rsvp, onlyInvited: true },
   { key: "afterparty", label: "After-party", person: true, options: OPT.afterparty },
   { key: "table_status", label: "Table status", person: true, options: OPT.table_status },
@@ -358,7 +359,7 @@ function personMatches(p) {
     const sel = state.filters[def.key];
     if (!def.person || !sel?.length) continue;
     if (def.onlyInvited && !(Number(p.rd_invited) > 0)) return false;
-    if (!sel.includes(fv(p[def.key]))) return false;
+    if (!sel.includes(fv(def.get ? def.get(p) : p[def.key]))) return false;
   }
   return true;
 }
@@ -491,7 +492,7 @@ function renderStats(fams) {
     <div class="stat s-ap">
       <span>After-party</span>
       <strong>${n(ap.Yes)} <small>yes</small></strong>
-      <em>${n(ap.No)} no · ${n(ap.Unknown)} unknown</em>
+      <em>${n(ap.Maybe)} maybe · ${n(ap.No)} no · ${n(ap.Unknown)} unknown</em>
     </div>`;
 }
 

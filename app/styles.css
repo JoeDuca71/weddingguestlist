@@ -360,3 +360,14 @@ body.bulk .toast { bottom: 96px; }
 .sv:hover { background: var(--accent-soft); color: var(--accent); }
 .sv.on { background: var(--accent); color: #fff; }
 .sv.on small { color: #fff; }
+
+/* Column views (presets) */
+.views { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 3px; }
+.vbtn { border: 0; background: none; padding: 5px 12px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 14px; }
+.vbtn:hover { color: var(--accent); }
+.vbtn.on { background: var(--pink); color: #fff; box-shadow: 0 0 10px rgb(255 46 147 / .4); }
+.vbtn.custom { cursor: default; background: var(--surface-2); color: var(--text); box-shadow: none; font-weight: 400; font-style: italic; }
+@media (max-width: 760px) {
+  .views { width: 100%; order: 3; }
+  .vbtn { flex: 1; padding: 6px 4px; }
+}

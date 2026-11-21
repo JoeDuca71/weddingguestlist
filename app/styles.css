@@ -351,3 +351,4 @@ body.bulk .toast { bottom: 96px; }
   table.guests td { align-items: flex-start; }
   body.bulk main { padding-bottom: 220px; }
 }
+.add-row { display: flex; gap: 8px; flex-wrap: wrap; }

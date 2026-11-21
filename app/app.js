@@ -619,7 +619,8 @@ function renderDialog() {
       </div>
       <h3 class="people-title">People <span class="muted">(${draft.people.length})</span></h3>
       <div class="people">${draft.people.map(personCardHtml).join("")}</div>
-      <button type="button" class="btn" id="add-person">+ Add person</button>
+      <div class="add-row"><button type="button" class="btn" id="add-person">+ Add person</button>
+      ${draft.people.length ? `<button type="button" class="btn" id="add-plusone">+ Add plus-one</button>` : ""}</div>
     </div>
     <div class="sheet-foot">
       ${draft.id ? `<button type="button" class="btn danger" id="delete-family">Delete family</button>` : "<span></span>"}
@@ -896,9 +897,12 @@ function wire() {
     const t = e.target;
     if (t.closest("[data-close]")) return dlg.close();
     if (t.closest("#delete-family")) return deleteFamily();
-    if (t.closest("#add-person")) {
+    const plusOne = t.closest("#add-plusone");
+    if (t.closest("#add-person") || plusOne) {
       const first = draft.people[0] || {};
-      const p = { ...PERSON_DEFAULTS, last_name: first.last_name || "" };
+      const p = plusOne
+        ? { ...PERSON_DEFAULTS, first_name: "Guest of", last_name: personName(first) }
+        : { ...PERSON_DEFAULTS, last_name: first.last_name || "" };
       ROLLUPS.forEach((k) => {
         const v = rollup(draft.people, k);
         if (v && v !== MULTI && k !== "rd_status") p[k] = v;

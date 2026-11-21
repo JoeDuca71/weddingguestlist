@@ -21,6 +21,13 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 - `supabase/01_schema.sql` creates `gl_families`, `gl_people` and `gl_views` (saved column presets, for later)
   in the to-do app's Supabase project, reusing its allowlist and security rules.
 
+## Loading the guest list
+
+`scripts/excel_to_sql.py` turns the guest spreadsheet into `supabase/02_import.sql`
+(`python3 scripts/excel_to_sql.py "Guest List.xlsx" supabase/02_import.sql`). Run that file once in the
+Supabase SQL Editor after the schema. It refuses to run twice. The generated file holds guests' personal
+details, so it is git-ignored and never committed.
+
 ## One-time setup
 
 1. **Database:** in Supabase, open **SQL Editor > New query**, paste all of `supabase/01_schema.sql`, and click **Run**.

@@ -4,10 +4,10 @@
 
 const OPT = {
   rsvp: ["TBD", "Yes", "No", "Maybe"],
-  afterparty: ["Unknown", "Yes", "No"],
+  afterparty: ["Unknown", "Yes", "Maybe", "No"],
   table_status: ["Need to Seat", "Seated", "n/a"],
   affiliation: ["Dylan Family", "Dylan Friends", "Joe Family", "Joe Friends", "Mutual"],
-  invite_status: ["Not Contacted", "Texted for Address", "Postcard Sent", "Texted for RSVP", "Done"],
+  invite_status: ["Not Contacted", "Need to Text for Address", "Texted for Address", "Emailed", "Postcard Sent", "Texted for RSVP", "Done"],
   yesno: ["Yes", "No"],
   hotel_status: ["Unknown", "Maybe Host Hotel", "Yes Host Hotel", "Yes Tracey BnB", "Yes Other Home", "n/a"],
   hotel_swag: ["Need to Do", "Done", "Delivered", "n/a"],
@@ -491,7 +491,7 @@ function renderStats(fams) {
     <div class="stat s-ap">
       <span>After-party</span>
       <strong>${n(ap.Yes)} <small>yes</small></strong>
-      <em>${n(ap.No)} no · ${n(ap.Unknown)} unknown</em>
+      <em>${n(ap.Maybe)} maybe · ${n(ap.No)} no · ${n(ap.Unknown)} unknown</em>
     </div>`;
 }
 

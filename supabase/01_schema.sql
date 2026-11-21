@@ -12,7 +12,7 @@ create table if not exists public.gl_families (
   family_name text not null,              -- how we address them, e.g. "The Brad Johnson Family"
   affiliation text check (affiliation in ('Dylan Family', 'Dylan Friends', 'Joe Family', 'Joe Friends', 'Mutual')),
   invite_status text not null default 'Not Contacted'
-    check (invite_status in ('Not Contacted', 'Texted for Address', 'Postcard Sent', 'Texted for RSVP', 'Done')),
+    check (invite_status in ('Not Contacted', 'Need to Text for Address', 'Texted for Address', 'Emailed', 'Postcard Sent', 'Texted for RSVP', 'Done')),
   live_in_town text check (live_in_town in ('Yes', 'No')),
   hotel_status text not null default 'Unknown'
     check (hotel_status in ('Unknown', 'Maybe Host Hotel', 'Yes Host Hotel', 'Yes Tracey BnB', 'Yes Other Home', 'n/a')),
@@ -43,8 +43,8 @@ create table if not exists public.gl_people (
   rsvp text not null default 'TBD' check (rsvp in ('TBD', 'Yes', 'No', 'Maybe')),
   rd_invited int not null default 0 check (rd_invited >= 0),
   rd_status text not null default 'TBD' check (rd_status in ('TBD', 'Yes', 'No', 'Maybe')),
-  afterparty text not null default 'Unknown' check (afterparty in ('Unknown', 'Yes', 'No')),
-  afterparty_swag text not null default 'Unknown' check (afterparty_swag in ('Unknown', 'Yes', 'No')),
+  afterparty text not null default 'Unknown' check (afterparty in ('Unknown', 'Yes', 'Maybe', 'No')),
+  afterparty_swag text not null default 'Unknown' check (afterparty_swag in ('Unknown', 'Yes', 'Maybe', 'No')),
   table_status text not null default 'Need to Seat' check (table_status in ('Need to Seat', 'Seated', 'n/a')),
   table_number text,
   phone text,
@@ -101,3 +101,13 @@ begin
   alter publication supabase_realtime add table public.gl_people;
 exception when duplicate_object then null;
 end $$;
+
+-- 2026-11-21: extra values used in Joe's spreadsheet. Safe to run on a database
+-- made from an older copy of this file.
+alter table public.gl_families drop constraint if exists gl_families_invite_status_check;
+alter table public.gl_families add constraint gl_families_invite_status_check
+  check (invite_status in ('Not Contacted', 'Need to Text for Address', 'Texted for Address', 'Emailed', 'Postcard Sent', 'Texted for RSVP', 'Done'));
+alter table public.gl_people drop constraint if exists gl_people_afterparty_check;
+alter table public.gl_people add constraint gl_people_afterparty_check check (afterparty in ('Unknown', 'Yes', 'Maybe', 'No'));
+alter table public.gl_people drop constraint if exists gl_people_afterparty_swag_check;
+alter table public.gl_people add constraint gl_people_afterparty_swag_check check (afterparty_swag in ('Unknown', 'Yes', 'Maybe', 'No'));

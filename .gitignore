@@ -1,0 +1,4 @@
+# Guest data (names, addresses, phones) never goes in the repo.
+supabase/02_import*.sql
+*.xlsx
+*.csv

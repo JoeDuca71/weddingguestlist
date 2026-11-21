@@ -131,6 +131,7 @@ const FILTERS = [
   { key: "live_in_town", label: "In town?", options: OPT.yesno, blank: true },
   { key: "invite_status", label: "Invite status", options: OPT.invite_status },
   { key: "hotel_status", label: "Hotel", options: OPT.hotel_status },
+  { key: "rd_inv", label: "Rehearsal invited", person: true, options: OPT.yesno, get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
   { key: "rd_status", label: "Rehearsal RSVP", person: true, options: OPT.rsvp, onlyInvited: true },
   { key: "afterparty", label: "After-party", person: true, options: OPT.afterparty },
   { key: "table_status", label: "Table status", person: true, options: OPT.table_status },
@@ -358,7 +359,7 @@ function personMatches(p) {
     const sel = state.filters[def.key];
     if (!def.person || !sel?.length) continue;
     if (def.onlyInvited && !(Number(p.rd_invited) > 0)) return false;
-    if (!sel.includes(fv(p[def.key]))) return false;
+    if (!sel.includes(fv(def.get ? def.get(p) : p[def.key]))) return false;
   }
   return true;
 }

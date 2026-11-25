@@ -264,6 +264,12 @@ function makeSupabaseApi() {
     upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map(strip)).select()) : []),
     updatePeople: async (ids, patch) => (ids.length ? check(await sb.from("gl_people").update(patch).in("id", ids).select()) : []),
     deletePeople: async (ids) => (ids.length ? check(await sb.from("gl_people").delete().in("id", ids)) : null),
+    // Settings live in their own table so the rest of the app works before its SQL has been run.
+    loadSettings: async () => {
+      const row = check(await sb.from("gl_settings").select("data").eq("id", 1).maybeSingle());
+      return row?.data || null;
+    },
+    saveSettings: async (data) => check(await sb.from("gl_settings").upsert({ id: 1, data })),
     // The B-list table is separate so the rest of the app still works before its SQL has been run.
     loadBlist: async () => check(await sb.from("gl_blist").select("*").order("priority").order("id")),
     insertBlist: async (row) => check(await sb.from("gl_blist").insert(strip(row)).select().single()),
@@ -331,6 +337,8 @@ function makeDemoApi() {
       db.people = db.people.filter((p) => !ids.includes(p.id));
       save();
     },
+    loadSettings: async () => null, // the demo keeps its look on this device (theme.js)
+    saveSettings: async () => null,
     loadBlist: async () => structuredClone(db.blist),
     insertBlist: async (row) => {
       const r = { ...row, id: db.nextId++ };
@@ -459,6 +467,10 @@ const visiblePeople = (fams) => fams.flatMap((f) => f.people.filter(personMatche
 
 function render() {
   renderTabs();
+  if (state.tab === "settings") {
+    if (!$("#settings-view").firstChild) Settings.render(); // don't rebuild it under someone mid-edit
+    return;
+  }
   if (state.tab === "blist") return renderBlist();
   const fams = visibleFamilies();
   renderStats();
@@ -857,20 +869,25 @@ async function applyBulk() {
 // ---------- B-list ----------
 
 function renderTabs() {
-  const onB = state.tab === "blist";
+  const onB = state.tab === "blist", onS = state.tab === "settings", onM = state.tab === "main";
   $$("#tabs .tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === state.tab));
-  $("#main-view").hidden = onB;
+  $("#tabs").hidden = onS;
+  $("#main-view").hidden = !onM;
   $("#blist-view").hidden = !onB;
-  $("#add-family").hidden = onB;
+  $("#settings-view").hidden = !onS;
+  $("#add-family").hidden = !onM;
   $("#add-blist").hidden = !onB;
-  $("#bulkbar").hidden = onB || !state.bulk;
+  $("#open-settings").classList.toggle("on", onS);
+  $("#bulkbar").hidden = !onM || !state.bulk;
   $("#blist-count").textContent = state.blistError ? "" : `(${state.blist.reduce((n, b) => n + blistCount(b), 0)})`;
 }
 
 function setTab(tab) {
   state.tab = tab;
-  store("tab", tab);
+  if (tab !== "settings") store("tab", tab); // Settings is a visit, not somewhere to land next time
+  else $("#settings-view").innerHTML = "";
   render();
+  window.scrollTo(0, 0);
 }
 
 function renderBlist() {
@@ -1104,6 +1121,8 @@ function wire() {
   });
   $("#add-family").addEventListener("click", () => openFamily(null));
   $("#add-blist").addEventListener("click", () => openBlist(null));
+  $("#open-settings").addEventListener("click", () => setTab(state.tab === "settings" ? "main" : "settings"));
+  Settings.wire();
   $("#tabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
     if (t) setTab(t.dataset.tab);
@@ -1333,6 +1352,7 @@ async function startApp(email) {
   } catch (e) {
     toast("Couldn't load guests: " + e.message, true);
   }
+  await Settings.loadRemote();
   try {
     state.blist = await api.loadBlist();
   } catch (e) {

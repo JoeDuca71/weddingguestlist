@@ -24,6 +24,16 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 - `supabase/01_schema.sql` creates `gl_families`, `gl_people` and `gl_views` (saved column presets, for later)
   in the to-do app's Supabase project, reusing its allowlist and security rules.
 - `supabase/03_blist.sql` adds the `gl_blist` table for the B-list.
+- `supabase/04_settings.sql` adds the `gl_settings` table (saved theme and colors).
+- `app/theme.js` is the theme engine (themes, background patterns, color math); `app/settings.js` is the Settings page.
+
+## Settings and themes
+
+The **⚙** button opens Settings. **Design** lets you pick a theme (Floral, Formal, Country, Beach, Disco), which sets the
+background pattern, header, heading font, accent and four status colors: **Done**, **In process**, **To do** and **Unknown**.
+Each color has a color picker and a hex box, and the soft background and readable text color for status pills are worked out
+from the one color you pick, so any color stays legible (including in dark mode). Run `supabase/04_settings.sql` once so the
+look is shared with everyone; until then it is saved on each device.
 
 ## B-list setup
 

@@ -262,7 +262,7 @@ window.Settings = (() => {
     return `<div class="vals"><h5>${fld.type === "checkbox" ? "Checkbox values (ticked / unticked)" : "Values"}</h5>
       ${fld.values.map((v, i) => valueRowHtml(scope, fld, v, i)).join("")}
       ${fld.type === "checkbox" ? "" : `<button type="button" class="btn small" data-vadd>+ Add value</button>`}
-      ${fld.type === "dropdown" ? `<label class="inline">Starts as <select data-fdefault>${fld.nullable ? `<option value="" ${fld.default == null ? "selected" : ""}>—</option>` : ""}${fld.values.map((v) => `<option ${v.v === fld.default ? "selected" : ""}>${esc(v.v)}</option>`).join("")}</select></label>` : ""}
+      ${fld.type === "dropdown" ? `<label class="inline">New guest's default value <select data-fdefault>${fld.nullable ? `<option value="" ${fld.default == null ? "selected" : ""}>—</option>` : ""}${fld.values.map((v) => `<option ${v.v === fld.default ? "selected" : ""}>${esc(v.v)}</option>`).join("")}</select></label>` : ""}
     </div>`;
   }
   // Redraw just the values list of one card (so the card stays open and nothing else moves).

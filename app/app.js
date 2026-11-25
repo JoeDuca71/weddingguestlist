@@ -4,7 +4,8 @@
 
 const OPT = {
   rsvp: ["TBD", "Yes", "No", "Maybe"],
-  afterparty: ["Unknown", "Yes", "Maybe", "No"],
+  afterparty: ["Unknown", "Yes", "Likely", "Maybe", "No"],
+  afterparty_swag: ["Unknown", "Yes", "Maybe", "No"],
   table_status: ["Need to Seat", "Seated", "n/a"],
   affiliation: ["Dylan Family", "Dylan Friends", "Joe Family", "Joe Friends", "Mutual"],
   invite_status: ["Not Contacted", "Need to Text for Address", "Texted for Address", "Emailed", "Postcard Sent", "Texted for RSVP", "Done"],
@@ -26,7 +27,7 @@ const PERSON_FIELDS = [
   { key: "rd_invited", label: "Rehearsal dinner invited", type: "number" },
   { key: "rd_status", label: "Rehearsal dinner RSVP", type: "select", options: OPT.rsvp },
   { key: "afterparty", label: "After-party", type: "select", options: OPT.afterparty },
-  { key: "afterparty_swag", label: "After-party SWAG", type: "select", options: OPT.afterparty },
+  { key: "afterparty_swag", label: "After-party SWAG", type: "select", options: OPT.afterparty_swag },
   { key: "table_status", label: "Table status", type: "select", options: OPT.table_status },
   { key: "table_number", label: "Table #", type: "text" },
   { key: "phone", label: "Phone", type: "tel" },
@@ -519,7 +520,7 @@ function renderStats() {
     <div class="stat s-ap">
       <span>After-party</span>
       <strong>${chip("afterparty", "Yes", n(ap.Yes), "yes", true)}</strong>
-      <em>${rest("afterparty", ap, [["Maybe", "maybe"], ["No", "no"], ["Unknown", "unknown"]])}</em>
+      <em>${rest("afterparty", ap, [["Likely", "likely"], ["Maybe", "maybe"], ["No", "no"], ["Unknown", "unknown"]])}</em>
     </div>`;
 }
 

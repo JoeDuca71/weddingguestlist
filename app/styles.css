@@ -248,7 +248,7 @@ table.guests .c-notes, table.guests .c-gift { max-width: 260px; overflow: hidden
 .check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
 
 .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; background: var(--surface-2); color: var(--muted); }
-.v-yes, .v-done, .v-seated, .v-delivered, .v-yes-host-hotel { background: var(--today-soft); color: var(--today); }
+.v-yes, .v-likely, .v-done, .v-seated, .v-delivered, .v-yes-host-hotel { background: var(--today-soft); color: var(--today); }
 .v-no { background: var(--surface-2); color: var(--text); text-decoration: line-through; text-decoration-color: var(--silver); }
 .v-maybe, .v-maybe-host-hotel, .v-need-to-seat, .v-need-to-do { background: var(--danger-soft); color: var(--danger); }
 .v-multiple { background: var(--accent-soft); color: var(--accent); }

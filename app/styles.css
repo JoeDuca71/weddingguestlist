@@ -507,3 +507,33 @@ table.guests.preview { pointer-events: none; }
 .ex-label { font-size: 12px; margin-right: 2px; }
 .couple-line { font-weight: 600; }
 .fgroup .form-grid + .form-grid { margin-top: 12px; }
+
+/* Round 3: field tabs, colored color pickers, section titles */
+.ftabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin: 14px 0 10px; }
+.ftabs .tab { margin-bottom: -1px; }
+.ftabs .tab.on { border-bottom: 1px solid var(--surface); }
+.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+.fsec-head { gap: 0; flex-wrap: wrap; }
+.fsec-head .btn { margin-left: auto; }
+.sec-title { display: inline-grid; }
+.sec-title > * { grid-area: 1 / 1; font: inherit; font-weight: 700; font-size: 15px; padding: 4px 2px 4px 8px; margin-left: -8px; border: 1px solid transparent; white-space: pre; }
+.sec-sizer { visibility: hidden; }
+.sec-title .sec-name { width: 100%; min-width: 0; margin-left: -8px; }
+.sec-word { margin-left: 4px !important; }
+.csel.c-done, .csel option.c-done { background: var(--st-done-soft); color: var(--st-done-ink); }
+.csel.c-process, .csel option.c-process { background: var(--st-process-soft); color: var(--st-process-ink); }
+.csel.c-todo, .csel option.c-todo { background: var(--st-todo-soft); color: var(--st-todo-ink); }
+.csel.c-unknown, .csel option.c-unknown { background: var(--st-unknown-soft); color: var(--st-unknown-ink); }
+.csel.c-accent, .csel option.c-accent { background: var(--accent); color: var(--on-accent, #fff); }
+.csel.c-muted, .csel option.c-muted { background: var(--surface-2); color: var(--text); text-decoration: line-through; }
+.val-row.has-partner { grid-template-columns: 110px minmax(120px, 1fr) 190px 150px 70px; }
+.val-row select { min-width: 0; }
+.fbody .form-grid { max-width: 640px; }
+.fcard.auto summary { cursor: pointer; }
+@media (max-width: 640px) { .val-row.has-partner { grid-template-columns: 1fr 1fr; } }
+.f-address2 { grid-column: 1 / -1; }
+.sec-title .sec-name { width: 0; min-width: 100%; }
+.val-row.has-partner { grid-template-columns: 110px minmax(120px, 1fr) 190px minmax(150px, auto) 70px; }
+.sec-title { margin-left: -8px; }
+.sec-title > *, .sec-title .sec-name { margin-left: 0; padding-right: 8px; }

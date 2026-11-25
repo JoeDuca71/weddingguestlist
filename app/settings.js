@@ -189,6 +189,7 @@ window.Settings = (() => {
   const openFields = new Set();
   const scopeNow = () => (fieldScope === "events" ? "person" : fieldScope);
   const COLOR_NAMES = Object.fromEntries(Fields.COLORS);
+  const MAX = 50; // longest name we accept for a field, section, event or value
 
   function rowsUsing(scope, key, v) {
     const rows = scope === "family" ? state.families : state.people;
@@ -207,11 +208,21 @@ window.Settings = (() => {
   // Make sure the values list is stored in full before editing it.
   const ensureValues = (f, scope, key) => (f.values ||= Fields.get(scope, key).values.map((x) => ({ v: x.raw ?? x.v, color: x.color })));
 
+  // Values of a "partner" field (Affiliation) are stored as "{p1} Friend": the partner is chosen from a drop down on the left.
+  const splitPartner = (raw) => {
+    const m = /^\{p([12])\}\s*(.*)$/.exec(String(raw ?? ""));
+    return m ? [m[1], m[2]] : ["", String(raw ?? "")];
+  };
+  const partnerOptions = (pn) => `<option value="" ${pn ? "" : "selected"}>—</option>` + [1, 2].map((n) => `<option value="${n}" ${String(n) === pn ? "selected" : ""}>${esc(Fields.expand(`{p${n}}`))}</option>`).join("");
+  const colorOptions = (cur) => Fields.COLORS.map(([k, name]) => `<option value="${k}" class="c-${k}" ${k === cur ? "selected" : ""}>${esc(name)}</option>`).join("");
+
   function valueRowHtml(scope, fld, v, i) {
     const locked = fld.locked.includes(v.v);
-    return `<div class="val-row" data-vrow="${i}">
-      <input type="text" class="val-name" data-vname="${i}" data-orig="${esc(v.v)}" value="${esc(v.raw ?? v.v)}" maxlength="60" ${locked ? `readonly title="The app's automatic rules use this value, so it can't be renamed or removed"` : ""} aria-label="Value ${i + 1}">
-      <select data-vcolor="${i}" aria-label="Color for ${esc(v.v)}">${Fields.COLORS.map(([k, name]) => `<option value="${k}" ${k === v.color ? "selected" : ""}>${esc(name)}</option>`).join("")}</select>
+    const [pn, rest] = fld.partner ? splitPartner(v.raw ?? v.v) : ["", v.raw ?? v.v];
+    return `<div class="val-row ${fld.partner ? "has-partner" : ""}" data-vrow="${i}">
+      ${fld.partner ? `<select data-vpartner aria-label="Partner for value ${i + 1}" ${locked ? "disabled" : ""}>${partnerOptions(pn)}</select>` : ""}
+      <input type="text" class="val-name" data-vname="${i}" data-orig="${esc(v.v)}" value="${esc(rest)}" maxlength="${MAX}" ${locked ? `readonly title="The app's automatic rules use this value, so it can't be renamed or removed"` : ""} aria-label="Value ${i + 1}">
+      <select class="csel c-${v.color}" data-vcolor="${i}" aria-label="Color for ${esc(v.v)}">${colorOptions(v.color)}</select>
       <span class="pill c-${v.color}" data-vpill="${i}">${esc(v.v || "…")}</span>
       ${locked ? `<span class="lock" title="Used by the app's automatic rules">🔒</span>` : fld.type === "checkbox" ? "" : `<button type="button" class="linkish danger-link" data-vdel="${i}" aria-label="Remove ${esc(v.v)}">Remove</button>`}
     </div>`;
@@ -249,7 +260,7 @@ window.Settings = (() => {
       </summary>
       <div class="fbody">
         <div class="form-grid">
-          <label class="field"><span>Field name</span><input type="text" data-flabel value="${esc(fld.label)}" maxlength="60" ${fld.isRsvp ? 'disabled title="Named after the event"' : ""}></label>
+          <label class="field"><span>Field name</span><input type="text" data-flabel value="${esc(fld.label)}" maxlength="${MAX}" ${fld.isRsvp ? 'disabled title="Named after the event"' : ""}></label>
           <label class="field"><span>Field type</span><select data-ftype ${types.length < 2 ? "disabled" : ""}>${types.map(([t, n]) => `<option value="${t}" ${t === fld.type ? "selected" : ""}>${n}</option>`).join("")}</select></label>
           ${fld.event ? "" : `<label class="field"><span>Section</span><select data-fsection>${secs.map((s) => `<option value="${s.id}" ${s.id === fld.section ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>`}
         </div>
@@ -259,6 +270,21 @@ window.Settings = (() => {
         <button type="button" class="linkish" data-freset ${fld.customized ? "" : "hidden"}>Reset this field to its defaults</button>
         ${fld.added ? `<button type="button" class="linkish danger-link" data-fdel>Remove this field</button>` : ""}
       </div>
+    </details>`;
+  }
+
+  // A People field that is also shown on the family form: listed on the Family tab, but managed under People fields.
+  function autoCardHtml(f) {
+    const open = openFields.has("family:auto:" + f.key);
+    const sec = Fields.sections("person").find((x) => x.id === f.section);
+    const where = sec && sec.name ? ` (in the ‘${esc(sec.name)}’ section)` : "";
+    return `<details class="fcard auto" data-fkey="auto:${f.key}" data-auto ${open ? "open" : ""}>
+      <summary>
+        <label class="fon" title="Managed under People fields"><input type="checkbox" class="check" checked disabled> <span class="sr">Enabled</span></label>
+        <strong class="fname">${esc(f.label)}</strong>
+        <span class="muted ftype">Auto</span>
+      </summary>
+      <div class="fbody"><p class="muted">This field is auto-generated from the People Field ‘${esc(f.label)}’${where}.</p></div>
     </details>`;
   }
 
@@ -283,7 +309,7 @@ window.Settings = (() => {
         <span class="muted ftype">${ev.enabled ? `${ev.fields.length} field${ev.fields.length === 1 ? "" : "s"}` : "off"}</span>
       </summary>
       <div class="fbody">
-        <label class="field"><span>Event name</span><input type="text" data-evname value="${esc(ev.name)}" maxlength="60"></label>
+        <label class="field"><span>Event name</span><input type="text" data-evname value="${esc(ev.name)}" maxlength="${MAX}"></label>
         <p class="muted">Turning an event on adds its RSVP to every person and to the family form (under Related Events). Add any other fields you want to track for it.</p>
         <div class="evfields">${cards.join("")}</div>
         <div class="evactions"><button type="button" class="btn small" data-evaddfield>+ Add field to ${esc(ev.name)}</button>
@@ -299,37 +325,34 @@ window.Settings = (() => {
       <p><button type="button" class="linkish" data-freset-all>Reset all events to the defaults</button></p>`;
   }
 
+  const sectionHead = (sec, withAdd) => `<div class="fsec-head">
+      <span class="sec-title"><span class="sec-sizer" aria-hidden="true">${esc(sec.name) || "(no title)"}</span><input type="text" class="sec-name" data-secname value="${esc(sec.name)}" placeholder="(no title)" maxlength="${MAX}" aria-label="Section name"></span><span class="sec-word">Section</span>
+      ${withAdd ? `<button type="button" class="btn small ghost" data-secadd>+ Add Field</button>` : ""}
+    </div>`;
+
   function fieldsHtml() {
     const secs = Fields.sections(scopeNow()).filter((x) => !x.event), list = Fields.list(scopeNow()).filter((f) => !f.event);
-    // People fields that also show on the family form (one change sets everyone) are listed under People fields.
-    const rolled = (id) => {
-      const names = fieldScope === "family" ? Fields.list("person").filter((f) => f.rollup && f.enabled && f.rollSection === id).map((f) => f.label) : [];
-      return names.length ? `<p class="muted rolled">Also shown here from People fields: ${names.map(esc).join(", ")}</p>` : "";
-    };
+    // People fields that also show on the family form (one change sets everyone) get a read-only card there.
+    const autos = (id) => (fieldScope === "family" ? Fields.list("person").filter((f) => f.rollup && f.enabled && f.rollSection === id) : []);
     const body = secs
       .map((sec) => {
-        const mine = list.filter((f) => f.section === sec.id);
+        const mine = list.filter((f) => f.section === sec.id), auto = autos(sec.id);
         return `<div class="fsec" data-sec="${sec.id}">
-          <div class="fsec-head"><input type="text" class="sec-name" data-secname value="${esc(sec.name)}" placeholder="(no title)" maxlength="60" aria-label="Section name" style="width:${Math.max(8, sec.name.length + 2)}ch"><span class="sec-word">Section</span></div>
+          ${sectionHead(sec, true)}
           ${mine.map((f) => fieldCardHtml(scopeNow(), f, secs)).join("")}
-          ${rolled(sec.id)}
-          ${!mine.length && !rolled(sec.id) ? `<p class="muted pad">No fields in this section. Move one here from another section.</p>` : ""}
+          ${auto.map(autoCardHtml).join("")}
+          ${!mine.length && !auto.length ? `<p class="muted pad">No fields in this section. Use Add Field, or move one here from another section.</p>` : ""}
         </div>`;
       })
       .join("");
+    const tab = (k, name) => `<button type="button" class="tab ${fieldScope === k ? "on" : ""}" role="tab" aria-selected="${fieldScope === k}" data-fscope="${k}">${name}</button>`;
     return `
       <h3>Fields</h3>
-      <p class="muted">What you keep track of. Turn fields off, rename them, change their type, and set the values and colors a drop down offers. Changes apply to everyone right away. Disabling a field will not erase any existing data.</p>
-      <p class="muted">&nbsp;</p>
-      <div class="vbtns" role="tablist">
-        <button type="button" class="vbtn ${fieldScope === "family" ? "on" : ""}" data-fscope="family">Family fields</button>
-        <button type="button" class="vbtn ${fieldScope === "person" ? "on" : ""}" data-fscope="person">People fields</button>
-        <button type="button" class="vbtn ${fieldScope === "events" ? "on" : ""}" data-fscope="events">Related events</button>
-      </div>
+      <p class="muted">Fields are the guest data you keep track of. Turn fields on/off, rename them, change their type, and set the values and colors. Changes apply to everyone right away. Renaming a value in use prompts to update the people or families that have it. Disabling a field hides it but keeps its data.</p>
+      <div class="ftabs" role="tablist">${tab("family", "Family fields")}${tab("person", "People fields")}${tab("events", "Related events")}</div>
       <p class="muted">${fieldScope === "family" ? "Things we track once per family or household." : fieldScope === "person" ? "Things we track for each person. Some also show on the family, where one change sets everyone. Related events have their own tab." : ""}</p>
       ${fieldScope === "events" ? eventsHtml() : body}
-      ${fieldScope === "events" ? "" : `<p><button type="button" class="linkish" data-freset-all>Reset all ${fieldScope === "family" ? "family" : "people"} fields to the defaults</button></p>`}
-      <p class="muted">Renaming a value in use offers to update the people or families that have it. Switching a field off hides it but keeps its data.</p>`;
+      ${fieldScope === "events" ? "" : `<p><button type="button" class="linkish" data-freset-all>Reset all ${fieldScope === "family" ? "family" : "people"} fields to the defaults</button></p>`}`;
   }
 
   function wireFields(box) {
@@ -365,6 +388,16 @@ window.Settings = (() => {
           ev.items[id] = { name: "New event" };
         });
       }
+      const secAdd = t.closest("[data-secadd]");
+      if (secAdd) {
+        const scope = scopeNow(), section = secAdd.closest(".fsec").dataset.sec, key = Fields.makeId("x_");
+        openFields.add(scope + ":" + key);
+        const o = Fields.getOverrides();
+        (o[scope].custom ||= []).push({ key, label: "New field", section });
+        Fields.setOverrides(o);
+        persist();
+        return render();
+      }
       const evCard = t.closest(".evcard");
       if (evCard && !t.closest(".fcard:not(.evcard)")) {
         const id = evCard.dataset.ev;
@@ -382,10 +415,19 @@ window.Settings = (() => {
       }
       const card = t.closest(".fcard:not(.evcard)");
       if (!card) return;
+      if (card.dataset.auto !== undefined) return;
       const key = card.dataset.fkey;
       if (t.closest("[data-fdel]")) {
         if (!confirm("Remove this field? Its answers stay in the database but are hidden.")) return;
-        const evId = card.closest(".evcard").dataset.ev;
+        const evCard2 = card.closest(".evcard");
+        if (!evCard2) {
+          const o = Fields.getOverrides();
+          o[scopeNow()].custom = (o[scopeNow()].custom || []).filter((c) => c.key !== key);
+          Fields.setOverrides(o);
+          persist();
+          return render();
+        }
+        const evId = evCard2.dataset.ev;
         return editEvents((ev) => {
           ev.items[evId].added = (ev.items[evId].added || []).filter((a) => a.key !== key);
         });
@@ -428,13 +470,14 @@ window.Settings = (() => {
       }
       if (el.dataset.secname !== undefined) {
         const id = el.closest(".fsec").dataset.sec;
-        el.style.width = Math.max(8, el.value.length + 2) + "ch";
+        const sz = el.parentElement.querySelector(".sec-sizer");
+        if (sz) sz.textContent = el.value || "(no title)";
         const o = Fields.getOverrides();
         (o[scopeNow()].sections ||= {})[id] = el.value;
         Fields.setOverrides(o);
         return persist();
       }
-      if (!card) return;
+      if (!card || card.dataset.auto !== undefined) return;
       const key = card.dataset.fkey;
       if (el.dataset.flabel !== undefined) {
         editField(scopeNow(), key, (f) => {
@@ -443,8 +486,8 @@ window.Settings = (() => {
         card.querySelector(".fname").textContent = el.value.trim() || Fields.defaultOf(scopeNow(), key).label;
       } else if (el.dataset.vname !== undefined && !el.readOnly) {
         // Only the sample pill follows the typing; the new name is saved when the box is left.
-        const p = card.querySelector(`[data-vpill="${el.dataset.vname}"]`);
-        if (p) p.textContent = Fields.expand(el.value) || "…";
+        const p = card.querySelector(`[data-vpill="${el.dataset.vname}"]`), pn = el.closest("[data-vrow]").querySelector("[data-vpartner]")?.value;
+        if (p) p.textContent = Fields.expand((pn ? `{p${pn}} ` : "") + el.value) || "…";
       }
     });
     box.addEventListener("change", async (e) => {
@@ -466,7 +509,7 @@ window.Settings = (() => {
         return;
       }
       if (el.dataset.secname !== undefined) return render();
-      if (!card) return;
+      if (!card || card.dataset.auto !== undefined) return;
       const key = card.dataset.fkey, scope = scopeNow();
       if (el.dataset.fenable !== undefined) {
         editField(scope, key, (f) => (f.enabled = el.checked));
@@ -490,10 +533,14 @@ window.Settings = (() => {
         editField(scope, key, (f) => (ensureValues(f, scope, key)[i].color = el.value));
         const p = card.querySelector(`[data-vpill="${i}"]`);
         if (p) p.className = "pill c-" + el.value;
-      } else if (el.dataset.vname !== undefined && !el.readOnly) {
-        // Finished renaming a value: offer to update the rows that use the old name.
-        const i = Number(el.dataset.vname), old = el.dataset.orig, raw = Fields.valueName(el.value), now = Fields.expand(raw);
-        el.value = raw;
+        el.className = "csel c-" + el.value;
+      } else if ((el.dataset.vname !== undefined && !el.readOnly) || el.dataset.vpartner !== undefined) {
+        // Finished renaming a value (or changing its partner): offer to update the rows that use the old name.
+        const row = el.closest("[data-vrow]"), nameEl = row.querySelector("[data-vname]");
+        if (nameEl.readOnly) return;
+        const i = Number(row.dataset.vrow), old = nameEl.dataset.orig, text = Fields.valueName(nameEl.value), pn = row.querySelector("[data-vpartner]")?.value;
+        const raw = text ? (pn ? `{p${pn}} ${text}` : text) : "", now = Fields.expand(raw);
+        nameEl.value = text;
         if (!raw) return refreshVals(card, scope, key);
         if (Fields.get(scope, key).values.some((v, j) => j !== i && v.v.toLowerCase() === now.toLowerCase())) {
           toast(`There is already a value called "${now}"`, true);

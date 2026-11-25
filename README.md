@@ -26,6 +26,7 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 - `supabase/03_blist.sql` adds the `gl_blist` table for the B-list.
 - `supabase/04_settings.sql` adds the `gl_settings` table (saved theme and colors).
 - `supabase/07_rehearsal_rsvp.sql` moves Rehearsal Dinner to the standard RSVP values (everyone n/a). Run once.
+- `supabase/08_family_extra.sql` adds an `extra` jsonb column to `gl_families` (Apartment/Unit, Country and any field you add to a Family section). Run once.
 - `supabase/05_open_values.sql` removes the fixed value lists from the database so Settings > Fields can add and rename values.
 - `app/fields.js` holds the built-in fields and their defaults; the Fields settings are stored as overrides on top of them.
 - `app/theme.js` is the theme engine (themes, background patterns, color math); `app/settings.js` is the Settings page.
@@ -33,7 +34,7 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 ## Settings and themes
 
 The **⚙** button opens Settings. **Design** lets you pick a theme (Floral, Formal, Country, Beach, Disco), which sets the
-background pattern, header, heading font, accent and four status colors: **Done**, **In process**, **To do** and **Unknown**.
+background pattern, header, heading font, accent and four status colors: **Color 1 / Done**, **Color 2 / In process**, **Color 3 / To do** and **Color 4 / Unknown**.
 Each color has a color picker and a hex box, and the soft background and readable text color for status pills are worked out
 from the one color you pick, so any color stays legible (including in dark mode). Run `supabase/04_settings.sql` once so the
 look is shared with everyone; until then it is saved on each device.
@@ -43,10 +44,10 @@ look is shared with everyone; until then it is saved on each device.
 **Fields** (in Settings) lists every field for **Family** and for **People**, grouped into sections you can rename. Each field can be
 switched off (hidden everywhere, data kept), renamed, moved to another section, and given a type: Text, Long text, Drop Down,
 Checkbox, Multi-Select (Number is fixed for the count fields). Drop downs, checkboxes and multi-selects have a list of values, and
-each value gets a color: Done, In process, To do, Unknown, Accent, Muted or plain. Renaming a value that guests already use offers to
+each value gets a color: Color 1 / Done, Color 2 / In process, Color 3 / To do, Color 4 / Unknown, Accent, Muted or plain (the drop downs show each color). Renaming a value that guests already use offers to
 update them. A few values (marked 🔒) drive the app's automatic rules (RSVP Yes/No, Invite status Done, Live in town Yes, "n/a" and
 "Self" travel values) and can be recolored but not renamed or removed. Run `supabase/05_open_values.sql` once, or new or renamed
-values will be rejected by the database. Not yet possible: adding brand-new fields.
+values will be rejected by the database. Every section has an **Add Field** button for brand-new fields (stored in `extra`; run `supabase/06` and `08`). Names are limited to 50 characters. Affiliation values pick their partner from a drop down. On the Family tab, People fields that also show on the family form appear as read-only "auto" cards.
 
 ### Related events
 

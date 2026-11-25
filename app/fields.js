@@ -166,13 +166,17 @@ window.Fields = (() => {
   }
   // Sections and fields the user can configure, for one scope, given the events.
   // Fields the user added to a section (stored as overrides[scope].custom = [{key, label, section}]).
-  const customDefs = (list, sec) => (list || []).map((c) => F(c.key, c.label, "text", c.section, { allowed: [...ANY, "number"], added: true, custom: true }));
+  // A People field can also have roll (a family section id): then it shows on the family form too, one change setting everyone.
+  const customDefs = (list, scope) => (list || []).map((c) => F(c.key, c.label, "text", c.section, {
+    allowed: [...ANY, "number"], added: true, custom: true,
+    ...(scope === "person" && c.roll ? { rollup: true, rollSection: c.roll } : {}),
+  }));
   function baseScope(scope, events, custom) {
-    if (scope === "family") return { sections: DEFAULTS.family.sections, fields: [...DEFAULTS.family.fields, ...customDefs(custom)] };
+    if (scope === "family") return { sections: DEFAULTS.family.sections, fields: [...DEFAULTS.family.fields, ...customDefs(custom, scope)] };
     const P = DEFAULTS.person;
     return {
       sections: [...P.sectionsHead, ...events.map((e) => [e.section, e.name, null, true]), ...P.sectionsTail],
-      fields: [...P.fields, ...eventFieldDefs(events), ...customDefs(custom)],
+      fields: [...P.fields, ...eventFieldDefs(events), ...customDefs(custom, scope)],
     };
   }
 
@@ -224,7 +228,11 @@ window.Fields = (() => {
         if (!idOk(c?.key, "x_") || seen.has(c.key) || !base0.sections.some((x) => x[0] === c.section && !x[3])) return false;
         seen.add(c.key);
         return true;
-      }).map((c) => ({ key: c.key, label: str(c.label) || "New field", section: c.section }));
+      }).map((c) => {
+        const r = { key: c.key, label: str(c.label) || "New field", section: c.section };
+        if (scope === "person" && DEFAULTS.family.sections.some((x) => x[0] === c.roll)) r.roll = c.roll;
+        return r;
+      });
       const D = baseScope(scope, evs, custom), dst = out[scope];
       if (custom.length) dst.custom = custom;
       const secIds = D.sections.map((s) => s[0]), keys = D.fields.map((f) => f.key);

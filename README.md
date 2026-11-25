@@ -47,7 +47,7 @@ Checkbox, Multi-Select (Number is fixed for the count fields). Drop downs, check
 each value gets a color: Color 1 / Done, Color 2 / In process, Color 3 / To do, Color 4 / Unknown, Accent, Muted or plain (the drop downs show each color). Renaming a value that guests already use offers to
 update them. A few values (marked 🔒) drive the app's automatic rules (RSVP Yes/No, Invite status Done, Live in town Yes, "n/a" and
 "Self" travel values) and can be recolored but not renamed or removed. Run `supabase/05_open_values.sql` once, or new or renamed
-values will be rejected by the database. Every section has an **Add Field** button for brand-new fields (stored in `extra`; run `supabase/06` and `08`). Names are limited to 50 characters. Affiliation values pick their partner from a drop down. On the Family tab, People fields that also show on the family form appear as read-only "auto" cards.
+values will be rejected by the database. Every section has an **Add Field** button for brand-new fields (stored in `extra`; run `supabase/06` and `08`). Names are limited to 50 characters. Affiliation values pick their partner from a drop down. Drag the ⠿ handle to reorder fields within a section, or values within a field (desktop; touch screens can't drag yet). A People field you add can also be shown on the family form ("Also show on the family form"). On the Family tab, People fields that also show on the family form appear as read-only "auto" cards.
 
 ### Related events
 

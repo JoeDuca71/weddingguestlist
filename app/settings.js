@@ -44,6 +44,7 @@ window.Settings = (() => {
   // The look is applied and kept on this device at once; it is also saved to the database so every
   // person using this guest list (and every device) sees the same thing.
   function persist() {
+    Fields.setCouple(couple.map((p) => p.name));
     Theme.saveLocal(Theme.get());
     saveCoupleLocal();
     Fields.saveLocal();
@@ -86,6 +87,7 @@ window.Settings = (() => {
         if (data.couple) {
           couple = cleanCouple(data.couple);
           saveCoupleLocal();
+          Fields.setCouple(couple.map((p) => p.name));
         }
       }
     } catch {
@@ -203,12 +205,12 @@ window.Settings = (() => {
     if (rerender) render();
   }
   // Make sure the values list is stored in full before editing it.
-  const ensureValues = (f, scope, key) => (f.values ||= Fields.get(scope, key).values.map((x) => ({ ...x })));
+  const ensureValues = (f, scope, key) => (f.values ||= Fields.get(scope, key).values.map((x) => ({ v: x.raw ?? x.v, color: x.color })));
 
   function valueRowHtml(scope, fld, v, i) {
     const locked = fld.locked.includes(v.v);
     return `<div class="val-row" data-vrow="${i}">
-      <input type="text" class="val-name" data-vname="${i}" data-orig="${esc(v.v)}" value="${esc(v.v)}" maxlength="60" ${locked ? `readonly title="The app's automatic rules use this value, so it can't be renamed or removed"` : ""} aria-label="Value ${i + 1}">
+      <input type="text" class="val-name" data-vname="${i}" data-orig="${esc(v.v)}" value="${esc(v.raw ?? v.v)}" maxlength="60" ${locked ? `readonly title="The app's automatic rules use this value, so it can't be renamed or removed"` : ""} aria-label="Value ${i + 1}">
       <select data-vcolor="${i}" aria-label="Color for ${esc(v.v)}">${Fields.COLORS.map(([k, name]) => `<option value="${k}" ${k === v.color ? "selected" : ""}>${esc(name)}</option>`).join("")}</select>
       <span class="pill c-${v.color}" data-vpill="${i}">${esc(v.v || "…")}</span>
       ${locked ? `<span class="lock" title="Used by the app's automatic rules">🔒</span>` : fld.type === "checkbox" ? "" : `<button type="button" class="linkish danger-link" data-vdel="${i}" aria-label="Remove ${esc(v.v)}">Remove</button>`}
@@ -360,7 +362,7 @@ window.Settings = (() => {
       } else if (el.dataset.vname !== undefined && !el.readOnly) {
         // Only the sample pill follows the typing; the new name is saved when the box is left.
         const p = card.querySelector(`[data-vpill="${el.dataset.vname}"]`);
-        if (p) p.textContent = el.value || "…";
+        if (p) p.textContent = Fields.expand(el.value) || "…";
       }
     });
     box.addEventListener("change", async (e) => {
@@ -392,9 +394,9 @@ window.Settings = (() => {
         if (p) p.className = "pill c-" + el.value;
       } else if (el.dataset.vname !== undefined && !el.readOnly) {
         // Finished renaming a value: offer to update the rows that use the old name.
-        const i = Number(el.dataset.vname), old = el.dataset.orig, now = Fields.valueName(el.value);
-        el.value = now;
-        if (!now) return refreshVals(card, scope, key);
+        const i = Number(el.dataset.vname), old = el.dataset.orig, raw = Fields.valueName(el.value), now = Fields.expand(raw);
+        el.value = raw;
+        if (!raw) return refreshVals(card, scope, key);
         if (Fields.get(scope, key).values.some((v, j) => j !== i && v.v.toLowerCase() === now.toLowerCase())) {
           toast(`There is already a value called "${now}"`, true);
           return refreshVals(card, scope, key);
@@ -411,7 +413,7 @@ window.Settings = (() => {
         }
         editField(scope, key, (f) => {
           const vals = ensureValues(f, scope, key);
-          if (vals[i]) vals[i].v = now;
+          if (vals[i]) vals[i].v = raw;
           if (now !== old && (f.default === old || Fields.get(scope, key).default === old)) f.default = now;
         });
         refreshVals(card, scope, key);

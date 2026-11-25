@@ -58,6 +58,10 @@ its own. Answers for the newer events and fields are stored in one `extra` jsonb
 `supabase/06_related_events.sql` once (after 05) before using them. It also changes the After Party values: Unknown becomes n/a and
 Likely becomes TBD (Invited).
 
+### Stats
+
+Settings > **Stats** chooses which cards show above the guest list: Wedding RSVPs, Host Hotel RSVPs, and one per related event that is on (in event order). The cards form a carousel; the arrows loop around. "n/a" counts are not listed. The choice is saved with your other settings (`supabase/04_settings.sql`).
+
 ## B-list setup
 
 Run `supabase/03_blist.sql` once in the Supabase SQL Editor. Until you do, the rest of the site works

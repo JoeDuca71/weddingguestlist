@@ -8,6 +8,7 @@ window.Settings = (() => {
   const SECTIONS = [
     { key: "couple", label: "💍 The Happy Couple" },
     { key: "design", label: "🎨 Design" },
+    { key: "stats", label: "📊 Stats" },
     { key: "fields", label: "🧩 Fields" },
   ];
   let section = "couple";
@@ -40,6 +41,26 @@ window.Settings = (() => {
   // "Joe & Dylan", "Joe", or "" depending on what's filled in.
   const coupleNames = () => couple.map((p) => p.name.trim()).filter(Boolean).join(" & ");
 
+  // ---------- Stats ----------
+  // Which of the cards above the guest list are shown. Stored as the ones that are hidden, so a new event shows by default.
+  const STATS_KEY = "wedding-guests:stats";
+  const cleanStats = (st) => ({ hidden: [...new Set((Array.isArray(st?.hidden) ? st.hidden : []).map(String).filter((x) => /^(rsvp|hotel|ev:[a-z0-9_]+)$/.test(x)))] });
+  let stats = cleanStats(null);
+  try {
+    stats = cleanStats(JSON.parse(localStorage.getItem(STATS_KEY)));
+  } catch {}
+  const statList = () => [
+    { id: "rsvp", name: "Wedding RSVPs", note: "Yes, TBD, No and Maybe for the wedding" },
+    { id: "hotel", name: "Host Hotel RSVPs", note: "Families who are yes or maybe for the host hotel" },
+    ...Fields.events().filter((e) => e.enabled).map((e) => ({ id: "ev:" + e.id, name: e.name, note: "RSVPs for this related event" })),
+  ];
+  function statsHtml() {
+    return `
+      <h3>Stats</h3>
+      <p class="muted">Choose which stats show above the guest list. Each related event that is switched on gets its own stat, in the same order as under Fields &gt; Related events.</p>
+      <div class="stat-picks">${statList().map((x) => `<label class="stat-pick"><input type="checkbox" class="check" data-statpick="${esc(x.id)}" ${stats.hidden.includes(x.id) ? "" : "checked"}> <span><strong>${esc(x.name)}</strong><small class="muted">${esc(x.note)}</small></span></label>`).join("")}</div>`;
+  }
+
   // ---------- Saving ----------
   // The look is applied and kept on this device at once; it is also saved to the database so every
   // person using this guest list (and every device) sees the same thing.
@@ -47,6 +68,9 @@ window.Settings = (() => {
     Fields.setCouple(couple.map((p) => p.name));
     Theme.saveLocal(Theme.get());
     saveCoupleLocal();
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    } catch {}
     Fields.saveLocal();
     setStatus("Saving…");
     clearTimeout(saveTimer);
@@ -59,7 +83,7 @@ window.Settings = (() => {
   async function saveRemote() {
     if (!remoteOk) return setStatus("Saved on this device only");
     try {
-      await api.saveSettings({ ...Theme.get(), couple, fields: Fields.getOverrides() });
+      await api.saveSettings({ ...Theme.get(), couple, stats, fields: Fields.getOverrides() });
       setStatus("Saved");
     } catch {
       remoteOk = false;
@@ -83,6 +107,10 @@ window.Settings = (() => {
         if (data.fields) {
           Fields.setOverrides(data.fields);
           Fields.saveLocal();
+        }
+        if (data.stats) {
+          stats = cleanStats(data.stats);
+          window.AppHooks?.refreshStats?.();
         }
         if (data.couple) {
           couple = cleanCouple(data.couple);
@@ -279,19 +307,31 @@ window.Settings = (() => {
     </details>`;
   }
 
-  // A People field that is also shown on the family form: listed on the Family tab, but managed under People fields.
-  function autoCardHtml(f) {
-    const open = openFields.has("family:auto:" + f.key);
-    const sec = Fields.sections("person").find((x) => x.id === f.section);
-    const where = sec && sec.name ? ` (in the ‘${esc(sec.name)}’ section)` : "";
+  // A read-only card for a field that is managed somewhere else (shown so the list is complete).
+  function lockedCardHtml(scope, f, tag, bodyHtml) {
+    const open = openFields.has(scope + ":auto:" + f.key);
     return `<details class="fcard auto" data-fkey="auto:${f.key}" data-auto ${open ? "open" : ""}>
       <summary>
-        <label class="fon" title="Managed under People fields"><input type="checkbox" class="check" checked disabled> <span class="sr">Enabled</span></label>
+        <label class="fon" title="Managed elsewhere"><input type="checkbox" class="check" checked disabled> <span class="sr">Enabled</span></label>
         <strong class="fname">${esc(f.label)}</strong>
-        <span class="muted ftype">Auto</span>
+        <span class="muted ftype">${tag}</span>
       </summary>
-      <div class="fbody"><p class="muted">This field is auto-generated from the People Field ‘${esc(f.label)}’${where}.</p></div>
+      <div class="fbody"><p class="muted">${bodyHtml}</p></div>
     </details>`;
+  }
+  // A People field that is also shown on the family form: listed on the Family tab, but managed under People fields.
+  function autoCardHtml(f) {
+    const sec = Fields.sections("person").find((x) => x.id === f.section);
+    const where = sec && sec.name ? ` (in the ‘${esc(sec.name)}’ section)` : "";
+    return lockedCardHtml("family", f, "Auto", `This field is auto-generated from the People Field ‘${esc(f.label)}’${where}.`);
+  }
+  // On the People tab: the related events' fields, managed on the Related events tab.
+  function eventsSectionHtml() {
+    const evs = Fields.events().filter((e) => e.enabled);
+    if (!evs.length) return "";
+    const cards = evs.flatMap((e) => [e.rsvp, ...e.fields.filter((f) => f.key !== e.rsvpKey)]).filter(Boolean)
+      .map((f) => lockedCardHtml("person", f, "Event", `You can set up this field on the <button type="button" class="linkish" data-fscope="events">Related events</button> tab.`));
+    return `<div class="fsec" data-sec="ev-all"><div class="fsec-head"><span class="sec-static">Related Events</span><span class="sec-word">Section</span></div>${cards.join("")}</div>`;
   }
 
   // ---------- Related events ----------
@@ -348,7 +388,7 @@ window.Settings = (() => {
           ${mine.map((f) => fieldCardHtml(scopeNow(), f, secs)).join("")}
           ${auto.map(autoCardHtml).join("")}
           ${!mine.length && !auto.length ? `<p class="muted pad">No fields in this section. Use Add Field, or move one here from another section.</p>` : ""}
-        </div>`;
+        </div>${fieldScope === "person" && sec.id === "p_wedding" ? eventsSectionHtml() : ""}`;
       })
       .join("");
     const tab = (k, name) => `<button type="button" class="tab ${fieldScope === k ? "on" : ""}" role="tab" aria-selected="${fieldScope === k}" data-fscope="${k}">${name}</button>`;
@@ -652,7 +692,7 @@ window.Settings = (() => {
         <button type="button" class="btn" data-settings-back>← Back to guest list</button></div>
       <div class="settings">
         <nav class="settings-nav" aria-label="Settings sections">${SECTIONS.map((x) => `<button type="button" class="${x.key === section ? "on" : ""}" data-section="${x.key}">${x.label}</button>`).join("")}</nav>
-        <section class="settings-body">${section === "couple" ? coupleHtml() : section === "fields" ? fieldsHtml() : section === "design" ? designHtml() : ""}</section>
+        <section class="settings-body">${section === "couple" ? coupleHtml() : section === "fields" ? fieldsHtml() : section === "stats" ? statsHtml() : section === "design" ? designHtml() : ""}</section>
       </div>`;
     box.querySelectorAll(".fcard").forEach((c) => (c.open = openFields.has(c.dataset.ev ? "ev:" + c.dataset.ev : scopeNow() + ":" + c.dataset.fkey)));
   }
@@ -704,6 +744,13 @@ window.Settings = (() => {
         return render();
       }
     });
+    box.addEventListener("change", (e) => {
+      const id = e.target.dataset?.statpick;
+      if (id === undefined) return;
+      stats.hidden = e.target.checked ? stats.hidden.filter((x) => x !== id) : [...stats.hidden, id];
+      persist();
+      window.AppHooks.refreshStats();
+    });
     box.addEventListener("input", (e) => {
       const el = e.target;
       if (el.dataset.cname !== undefined) {
@@ -749,5 +796,5 @@ window.Settings = (() => {
     });
   }
 
-  return { render, wire, loadRemote, couple: () => couple.map((p) => ({ ...p })), coupleNames };
+  return { render, wire, loadRemote, couple: () => couple.map((p) => ({ ...p })), coupleNames, statsHidden: () => [...stats.hidden] };
 })();

@@ -189,7 +189,12 @@ dialog form { display: flex; flex-direction: column; max-height: calc(100vh - 34
 main { max-width: 1400px; margin: 0 auto; padding: 14px 16px 120px; }
 
 /* Stats */
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stats { display: flex; gap: 8px; align-items: stretch; margin-bottom: 14px; }
+.stat-track { display: flex; gap: 10px; flex: 1; min-width: 0; overflow: hidden; }
+.stat-track .stat { flex: 0 0 205px; }
+.stat-nav { flex: none; width: 34px; border: 1px solid var(--border); background: var(--surface); color: var(--accent); border-radius: var(--radius); font-size: 22px; cursor: pointer; }
+.stat-nav:hover { border-color: var(--accent); }
+.stat span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat {
   background: var(--surface); border: 1px solid var(--border); border-top: 5px solid var(--pink); border-radius: var(--radius);
   padding: 8px 14px 10px; display: grid; gap: 2px; box-shadow: 0 2px 8px rgb(23 18 31 / .06); min-width: 0;
@@ -301,7 +306,6 @@ dialog.sheet.wide { width: min(980px, calc(100vw - 32px)); }
 .pgroup:nth-of-type(1) { grid-column: 1 / -1; }
 
 @media (max-width: 900px) {
-  .stats { grid-template-columns: 1fr 1fr; }
   .fam-groups { grid-template-columns: 1fr; }
   .person { grid-template-columns: 1fr 1fr; }
 }
@@ -548,3 +552,10 @@ table.guests.preview { pointer-events: none; }
 .val-row { grid-template-columns: 18px minmax(120px, 1fr) 190px 150px 70px; }
 .val-row.has-partner { grid-template-columns: 18px 110px minmax(120px, 1fr) 190px minmax(150px, auto) 70px; }
 @media (max-width: 640px) { .val-row .drag { display: none; } .val-row, .val-row.has-partner { grid-template-columns: 1fr 1fr; } }
+
+/* Stats settings */
+.stat-picks { display: grid; gap: 8px; max-width: 560px; }
+.stat-pick { display: flex; gap: 12px; align-items: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
+.stat-pick span { display: grid; }
+.sec-static { font-weight: 700; font-size: 15px; }
+.fsec-head .sec-static + .sec-word { margin-left: 4px; }

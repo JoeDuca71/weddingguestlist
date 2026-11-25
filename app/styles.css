@@ -146,7 +146,7 @@ a { color: var(--accent); }
 
 /* Dialogs */
 dialog.sheet {
-  width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0;
+  width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0;
   border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text);
 }
 dialog.sheet::backdrop { background: rgb(15 10 25 / .55); }
@@ -494,3 +494,10 @@ table.guests.preview { pointer-events: none; }
 .val-row .pill { justify-self: start; }
 .inline { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; }
 @media (max-width: 640px) { .val-row { grid-template-columns: 1fr 1fr; } }
+
+.fam-col { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.stat.s-ev { border-top-color: var(--silver); }
+.evcard > .fbody { gap: 12px; }
+.evfields { display: grid; gap: 6px; }
+.evfields .fcard { background: var(--surface-2); }
+.evactions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }

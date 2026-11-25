@@ -47,6 +47,15 @@ update them. A few values (marked 🔒) drive the app's automatic rules (RSVP Ye
 "Self" travel values) and can be recolored but not renamed or removed. Run `supabase/05_open_values.sql` once, or new or renamed
 values will be rejected by the database. Not yet possible: adding brand-new fields.
 
+### Related events
+
+Settings > Fields > **Related events** lists events that go with the wedding: Engagement Party, Bachelorette Party, Bachelor Party,
+Rehearsal Dinner, After Party and Post-Wedding Brunch (each can be switched on or off), plus any you add. An enabled event adds its
+RSVP (n/a, TBD (Invited), Yes, No, Maybe) to every person and to the family form under Related Events, and can have extra fields of
+its own. Answers for the newer events and fields are stored in one `extra` jsonb column on `gl_people`, so run
+`supabase/06_related_events.sql` once (after 05) before using them. It also changes the After Party values: Unknown becomes n/a and
+Likely becomes TBD (Invited).
+
 ## B-list setup
 
 Run `supabase/03_blist.sql` once in the Supabase SQL Editor. Until you do, the rest of the site works

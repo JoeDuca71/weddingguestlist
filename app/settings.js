@@ -188,6 +188,7 @@ window.Settings = (() => {
   // section, and (for drop downs, checkboxes and multi-selects) given a list of values with a color each.
   let fieldScope = "family";
   const openFields = new Set();
+  const scopeNow = () => (fieldScope === "events" ? "person" : fieldScope);
   const COLOR_NAMES = Object.fromEntries(Fields.COLORS);
 
   function rowsUsing(scope, key, v) {
@@ -238,31 +239,69 @@ window.Settings = (() => {
     const base = Fields.defaultOf(scope, key);
     const types = base.allowed.map((t) => [t, Fields.TYPES[t]]);
     const vals = valsHtml(scope, fld);
-    const rollSec = fld.rollup
+    const rollSec = fld.rollup && !fld.event
       ? `<label class="inline">Shown on the family form under <select data-froll>${Fields.sections("family").map((s) => `<option value="${s.id}" ${s.id === fld.rollSection ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>`
       : "";
     return `<details class="fcard ${fld.enabled ? "" : "off"}" data-fkey="${key}" ${open ? "open" : ""}>
       <summary>
-        <label class="fon" title="${fld.noDisable ? "This field is required" : "Show or hide this field everywhere"}"><input type="checkbox" class="check" data-fenable ${fld.enabled ? "checked" : ""} ${fld.noDisable ? "disabled" : ""}> <span class="sr">Enabled</span></label>
+        <label class="fon" title="${fld.noDisable || fld.isRsvp ? "This field is always on while it is needed" : "Show or hide this field everywhere"}"><input type="checkbox" class="check" data-fenable ${fld.own ? "checked" : ""} ${fld.noDisable || fld.isRsvp ? "disabled" : ""}> <span class="sr">Enabled</span></label>
         <strong class="fname">${esc(fld.label)}</strong>
         <span class="muted ftype">${esc(Fields.TYPES[fld.type])}${fld.enabled ? "" : " · off"}</span>
       </summary>
       <div class="fbody">
         <div class="form-grid">
-          <label class="field"><span>Field name</span><input type="text" data-flabel value="${esc(fld.label)}" maxlength="60"></label>
+          <label class="field"><span>Field name</span><input type="text" data-flabel value="${esc(fld.label)}" maxlength="60" ${fld.isRsvp ? 'disabled title="Named after the event"' : ""}></label>
           <label class="field"><span>Field type</span><select data-ftype ${types.length < 2 ? "disabled" : ""}>${types.map(([t, n]) => `<option value="${t}" ${t === fld.type ? "selected" : ""}>${n}</option>`).join("")}</select></label>
-          <label class="field"><span>Section</span><select data-fsection>${secs.map((s) => `<option value="${s.id}" ${s.id === fld.section ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>
+          ${fld.event ? "" : `<label class="field"><span>Section</span><select data-fsection>${secs.map((s) => `<option value="${s.id}" ${s.id === fld.section ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>`}
         </div>
         ${base.hint ? `<small class="hint">${esc(base.hint)}</small>` : ""}
         ${rollSec}
         ${vals}
         <button type="button" class="linkish" data-freset ${fld.customized ? "" : "hidden"}>Reset this field to its defaults</button>
+        ${fld.added ? `<button type="button" class="linkish danger-link" data-fdel>Remove this field</button>` : ""}
       </div>
     </details>`;
   }
 
+  // ---------- Related events ----------
+  function editEvents(fn, { rerender = true } = {}) {
+    const o = Fields.getOverrides();
+    o.events ||= { items: {}, custom: [] };
+    o.events.items ||= {};
+    o.events.custom ||= [];
+    fn(o.events);
+    Fields.setOverrides(o);
+    persist();
+    if (rerender) render();
+  }
+  function eventCardHtml(ev) {
+    const open = openFields.has("ev:" + ev.id);
+    const cards = [ev.rsvp, ...ev.fields.filter((f) => f.key !== ev.rsvpKey)].filter(Boolean).map((f) => fieldCardHtml("person", f, []));
+    return `<details class="fcard evcard ${ev.enabled ? "" : "off"}" data-ev="${ev.id}" ${open ? "open" : ""}>
+      <summary>
+        <label class="fon" title="Turn this event on or off"><input type="checkbox" class="check" data-evenable ${ev.enabled ? "checked" : ""}> <span class="sr">Enabled</span></label>
+        <strong class="fname">${esc(ev.name)}</strong>
+        <span class="muted ftype">${ev.enabled ? `${ev.fields.length} field${ev.fields.length === 1 ? "" : "s"}` : "off"}</span>
+      </summary>
+      <div class="fbody">
+        <label class="field"><span>Event name</span><input type="text" data-evname value="${esc(ev.name)}" maxlength="60"></label>
+        <p class="muted">Turning an event on adds its RSVP to every person and to the family form (under Related Events). Add any other fields you want to track for it.</p>
+        <div class="evfields">${cards.join("")}</div>
+        <div class="evactions"><button type="button" class="btn small" data-evaddfield>+ Add field to ${esc(ev.name)}</button>
+        ${ev.custom ? `<button type="button" class="linkish danger-link" data-evdel>Remove this event</button>` : ""}</div>
+      </div>
+    </details>`;
+  }
+  function eventsHtml() {
+    return `
+      <p class="muted">Events that go with the wedding but aren't the wedding itself. Turn on the ones you are having, add your own, and give any of them extra fields.</p>
+      ${Fields.events().map(eventCardHtml).join("")}
+      <p><button type="button" class="btn" data-evadd>+ Add an event</button></p>
+      <p><button type="button" class="linkish" data-freset-all>Reset all events to the defaults</button></p>`;
+  }
+
   function fieldsHtml() {
-    const secs = Fields.sections(fieldScope), list = Fields.list(fieldScope);
+    const secs = Fields.sections(scopeNow()).filter((x) => !x.event), list = Fields.list(scopeNow()).filter((f) => !f.event);
     // People fields that also show on the family form (one change sets everyone) are listed under People fields.
     const rolled = (id) => {
       const names = fieldScope === "family" ? Fields.list("person").filter((f) => f.rollup && f.enabled && f.rollSection === id).map((f) => f.label) : [];
@@ -273,7 +312,7 @@ window.Settings = (() => {
         const mine = list.filter((f) => f.section === sec.id);
         return `<div class="fsec" data-sec="${sec.id}">
           <div class="fsec-head"><input type="text" class="sec-name" data-secname value="${esc(sec.name)}" placeholder="(no title)" maxlength="60" aria-label="Section name"></div>
-          ${mine.map((f) => fieldCardHtml(fieldScope, f, secs)).join("")}
+          ${mine.map((f) => fieldCardHtml(scopeNow(), f, secs)).join("")}
           ${rolled(sec.id)}
           ${!mine.length && !rolled(sec.id) ? `<p class="muted pad">No fields in this section. Move one here from another section.</p>` : ""}
         </div>`;
@@ -285,10 +324,11 @@ window.Settings = (() => {
       <div class="vbtns" role="tablist">
         <button type="button" class="vbtn ${fieldScope === "family" ? "on" : ""}" data-fscope="family">Family fields</button>
         <button type="button" class="vbtn ${fieldScope === "person" ? "on" : ""}" data-fscope="person">People fields</button>
+        <button type="button" class="vbtn ${fieldScope === "events" ? "on" : ""}" data-fscope="events">Related events</button>
       </div>
-      <p class="muted">${fieldScope === "family" ? "Things we track once per family or household." : "Things we track for each person. Some also show on the family, where one change sets everyone."}</p>
-      ${body}
-      <p><button type="button" class="linkish" data-freset-all>Reset all ${fieldScope === "family" ? "family" : "people"} fields to the defaults</button></p>
+      <p class="muted">${fieldScope === "family" ? "Things we track once per family or household." : fieldScope === "person" ? "Things we track for each person. Some also show on the family, where one change sets everyone. Related events have their own tab." : ""}</p>
+      ${fieldScope === "events" ? eventsHtml() : body}
+      ${fieldScope === "events" ? "" : `<p><button type="button" class="linkish" data-freset-all>Reset all ${fieldScope === "family" ? "family" : "people"} fields to the defaults</button></p>`}
       <p class="muted">Renaming a value in use offers to update the people or families that have it. Switching a field off hides it but keeps its data.</p>`;
   }
 
@@ -307,58 +347,99 @@ window.Settings = (() => {
       if (t.closest("[data-freset-all]")) {
         if (!confirm("Reset every field in this list to the defaults? Your names, types, values and colors are replaced. Data in the guest list is not touched.")) return;
         const o = Fields.getOverrides();
-        o[fieldScope] = {};
+        const evKeys = Fields.events().flatMap((e) => [e.rsvpKey, ...e.builtinFields, ...e.added]);
+        const evOv = Object.fromEntries(Object.entries(o.person.fields || {}).filter(([k]) => evKeys.includes(k)));
+        if (fieldScope === "events") {
+          o.events = { items: {}, custom: [] };
+          o.person = { ...o.person, fields: Object.fromEntries(Object.entries(o.person.fields || {}).filter(([k]) => !evKeys.includes(k))) };
+        } else o[scopeNow()] = fieldScope === "person" ? { fields: evOv } : {};
         Fields.setOverrides(o);
         persist();
         return render();
       }
-      const card = t.closest(".fcard");
+      if (t.closest("[data-evadd]")) {
+        const id = Fields.makeId("e_");
+        openFields.add("ev:" + id);
+        return editEvents((ev) => {
+          ev.custom.push(id);
+          ev.items[id] = { name: "New event" };
+        });
+      }
+      const evCard = t.closest(".evcard");
+      if (evCard && !t.closest(".fcard:not(.evcard)")) {
+        const id = evCard.dataset.ev;
+        if (t.closest("[data-evaddfield]")) {
+          openFields.add("ev:" + id);
+          return editEvents((ev) => ((ev.items[id] ||= {}).added ||= []).push({ key: Fields.makeId("x_"), label: "New field" }));
+        }
+        if (t.closest("[data-evdel]")) {
+          if (!confirm("Remove this event? Its answers stay in the database but are hidden.")) return;
+          return editEvents((ev) => {
+            ev.custom = ev.custom.filter((x) => x !== id);
+            delete ev.items[id];
+          });
+        }
+      }
+      const card = t.closest(".fcard:not(.evcard)");
       if (!card) return;
       const key = card.dataset.fkey;
+      if (t.closest("[data-fdel]")) {
+        if (!confirm("Remove this field? Its answers stay in the database but are hidden.")) return;
+        const evId = card.closest(".evcard").dataset.ev;
+        return editEvents((ev) => {
+          ev.items[evId].added = (ev.items[evId].added || []).filter((a) => a.key !== key);
+        });
+      }
       if (t.closest("[data-freset]")) {
-        editField(fieldScope, key, (f, s) => {
+        editField(scopeNow(), key, (f, s) => {
           if (s.fields) delete s.fields[key];
         }, { rerender: true });
         return;
       }
       if (t.closest("[data-vadd]")) {
-        editField(fieldScope, key, (f) => {
-          const vals = ensureValues(f, fieldScope, key);
+        editField(scopeNow(), key, (f) => {
+          const vals = ensureValues(f, scopeNow(), key);
           let n = vals.length + 1, name = "New value";
           while (vals.some((v) => v.v === name)) name = "New value " + n++;
           vals.push({ v: name, color: "none" });
         });
-        refreshVals(card, fieldScope, key);
+        refreshVals(card, scopeNow(), key);
         card.querySelector(".vals [data-vrow]:last-of-type .val-name")?.select();
         return;
       }
       const del = t.closest("[data-vdel]");
       if (del) {
-        const i = Number(del.dataset.vdel), name = Fields.get(fieldScope, key).values[i]?.v;
-        const used = rowsUsing(fieldScope, key, name);
-        if (used && !confirm(`${used} ${fieldScope === "family" ? "families" : "people"} currently have "${name}". They keep that text, but it won't be one of the choices. Remove it anyway?`)) return;
-        editField(fieldScope, key, (f) => {
-          ensureValues(f, fieldScope, key).splice(i, 1);
+        const i = Number(del.dataset.vdel), name = Fields.get(scopeNow(), key).values[i]?.v;
+        const used = rowsUsing(scopeNow(), key, name);
+        if (used && !confirm(`${used} ${scopeNow() === "family" ? "families" : "people"} currently have "${name}". They keep that text, but it won't be one of the choices. Remove it anyway?`)) return;
+        editField(scopeNow(), key, (f) => {
+          ensureValues(f, scopeNow(), key).splice(i, 1);
         });
-        refreshVals(card, fieldScope, key);
+        refreshVals(card, scopeNow(), key);
       }
     });
     box.addEventListener("input", (e) => {
-      const el = e.target, card = el.closest(".fcard");
+      const el = e.target, card = el.closest(".fcard:not(.evcard)");
+      if (el.dataset.evname !== undefined) {
+        const id = el.closest(".evcard").dataset.ev;
+        editEvents((ev) => ((ev.items[id] ||= {}).name = el.value), { rerender: false });
+        el.closest(".evcard").querySelector(".fname").textContent = el.value.trim() || "Event";
+        return;
+      }
       if (el.dataset.secname !== undefined) {
         const id = el.closest(".fsec").dataset.sec;
         const o = Fields.getOverrides();
-        (o[fieldScope].sections ||= {})[id] = el.value;
+        (o[scopeNow()].sections ||= {})[id] = el.value;
         Fields.setOverrides(o);
         return persist();
       }
       if (!card) return;
       const key = card.dataset.fkey;
       if (el.dataset.flabel !== undefined) {
-        editField(fieldScope, key, (f) => {
+        editField(scopeNow(), key, (f) => {
           f.label = el.value;
         });
-        card.querySelector(".fname").textContent = el.value.trim() || Fields.defaultOf(fieldScope, key).label;
+        card.querySelector(".fname").textContent = el.value.trim() || Fields.defaultOf(scopeNow(), key).label;
       } else if (el.dataset.vname !== undefined && !el.readOnly) {
         // Only the sample pill follows the typing; the new name is saved when the box is left.
         const p = card.querySelector(`[data-vpill="${el.dataset.vname}"]`);
@@ -366,10 +447,26 @@ window.Settings = (() => {
       }
     });
     box.addEventListener("change", async (e) => {
-      const el = e.target, card = el.closest(".fcard");
+      const el = e.target, card = el.closest(".fcard:not(.evcard)");
+      if (el.dataset.evenable !== undefined) {
+        const id = el.closest(".evcard").dataset.ev;
+        return editEvents((ev) => ((ev.items[id] ||= {}).enabled = el.checked));
+      }
+      if (el.dataset.evname !== undefined) {
+        const id = el.closest(".evcard").dataset.ev;
+        if (!el.value.trim()) return editEvents((ev) => delete (ev.items[id] || {}).name);
+        // Keep the page as it is (a click on a button may be on its way); just refresh the RSVP card's name.
+        const e2 = Fields.events().find((x) => x.id === id), card2 = el.closest(".evcard");
+        const rc = card2.querySelector(`.fcard[data-fkey="${e2.rsvpKey}"]`);
+        if (rc) {
+          rc.querySelector(".fname").textContent = e2.rsvp.label;
+          rc.querySelector("[data-flabel]").value = e2.rsvp.label;
+        }
+        return;
+      }
       if (el.dataset.secname !== undefined) return render();
       if (!card) return;
-      const key = card.dataset.fkey, scope = fieldScope;
+      const key = card.dataset.fkey, scope = scopeNow();
       if (el.dataset.fenable !== undefined) {
         editField(scope, key, (f) => (f.enabled = el.checked));
         card.classList.toggle("off", !el.checked);
@@ -424,7 +521,10 @@ window.Settings = (() => {
   function render() {
     const box = document.getElementById("settings-view");
     // Keep the field cards that are open, open.
-    box.querySelectorAll(".fcard").forEach((c) => (c.open ? openFields.add(fieldScope + ":" + c.dataset.fkey) : openFields.delete(fieldScope + ":" + c.dataset.fkey)));
+    box.querySelectorAll(".fcard").forEach((c) => {
+      const id = c.dataset.ev ? "ev:" + c.dataset.ev : scopeNow() + ":" + c.dataset.fkey;
+      c.open ? openFields.add(id) : openFields.delete(id);
+    });
     box.innerHTML = `
       <div class="settings-head"><h2>Settings</h2>
         <span class="muted" id="settings-status"></span>
@@ -433,7 +533,7 @@ window.Settings = (() => {
         <nav class="settings-nav" aria-label="Settings sections">${SECTIONS.map((x) => `<button type="button" class="${x.key === section ? "on" : ""}" data-section="${x.key}">${x.label}</button>`).join("")}</nav>
         <section class="settings-body">${section === "couple" ? coupleHtml() : section === "fields" ? fieldsHtml() : section === "design" ? designHtml() : ""}</section>
       </div>`;
-    box.querySelectorAll(".fcard").forEach((c) => (c.open = openFields.has(fieldScope + ":" + c.dataset.fkey)));
+    box.querySelectorAll(".fcard").forEach((c) => (c.open = openFields.has(c.dataset.ev ? "ev:" + c.dataset.ev : scopeNow() + ":" + c.dataset.fkey)));
   }
 
   // ---------- Editing ----------

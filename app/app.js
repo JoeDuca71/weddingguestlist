@@ -597,6 +597,27 @@ function withoutFilter(key, fn) {
     state.filters = saved;
   }
 }
+// The stat cards are a carousel: as many as fit, with arrows that go round and round.
+let statTiles = [], statStart = 0;
+const STAT_W = 205, STAT_GAP = 10, STAT_NAV = 34;
+function drawStats() {
+  const box = $("#stats"), total = statTiles.length;
+  if (!total) return (box.innerHTML = "");
+  const W = box.clientWidth || 1000;
+  const fit = (w) => Math.max(1, Math.floor((w + STAT_GAP) / (STAT_W + STAT_GAP)));
+  const nav = total > fit(W);
+  const n = nav ? fit(W - 2 * (STAT_NAV + 8)) : total;
+  statStart = ((statStart % total) + total) % total;
+  const shown = Array.from({ length: Math.min(n, total) }, (_, i) => statTiles[(statStart + i) % total]);
+  const arrow = (d, ch, label) => `<button type="button" class="stat-nav" data-statnav="${d}" aria-label="${label}">${ch}</button>`;
+  box.innerHTML = (nav ? arrow(-1, "‹", "Previous stats") : "") + `<div class="stat-track">${shown.join("")}</div>` + (nav ? arrow(1, "›", "Next stats") : "");
+}
+let statResize;
+window.addEventListener("resize", () => {
+  clearTimeout(statResize);
+  statResize = setTimeout(drawStats, 120);
+});
+
 function renderStats() {
   const n = (v) => v || 0;
   const on = (key, val) => state.filters[key]?.length === 1 && state.filters[key][0] === val;
@@ -605,43 +626,44 @@ function renderStats() {
     `<button type="button" class="sv ${big ? "big" : ""} ${on(key, val) ? "on" : ""}" data-stat="${key}" data-val="${esc(val)}" title="Show only ${esc(label)}">${count}<small> ${esc(label)}</small></button>`;
   const has = (scope, key, v) => isOn(scope, key) && Fields.optionValues(scope, key).includes(v);
   const lower = (v) => v.toLowerCase();
+  // "TBD (Invited)" is shown as "tbd" to keep the cards narrow.
+  const short = (v) => lower(v.replace(/\s*\(.*\)\s*/g, "")) || lower(v);
   const filtered = activeFilterCount() || state.search;
+  const hidden = Settings.statsHidden();
   const tiles = [];
 
   // A card for a person-level answer field like RSVP: the "Yes" count big, the other values smaller.
-  // People marked "n/a" (not invited to that event) don't count toward "invited".
-  const answerCard = (cls, title, key, weight, only) => {
-    if (!has("person", key, "Yes")) return;
+  // People marked "n/a" (not invited to that event) don't count toward "invited" and aren't listed.
+  const answerCard = (id, cls, title, key, weight) => {
+    if (hidden.includes(id) || !has("person", key, "Yes")) return;
     const r = withoutFilter(key, (fams) => {
-      const people = visiblePeople(fams).filter(only || (() => true));
+      const people = visiblePeople(fams);
       return { t: tally(people, key, weight), invited: sum(people.filter((p) => p[key] !== "n/a"), weight) };
     });
-    const others = Fields.optionValues("person", key).filter((v) => v !== "Yes");
+    const others = Fields.optionValues("person", key).filter((v) => v !== "Yes" && v !== "n/a");
     tiles.push(`<div class="stat ${cls}">
-      <span>${esc(title)}${key === "rsvp" && filtered ? " (this view)" : ""}</span>
-      <strong>${chip(key, "Yes", n(r.t.Yes), lower("Yes"), true)} <small>of ${r.invited} invited</small></strong>
-      <em>${others.filter((v) => v !== "n/a" || r.t[v]).map((v) => chip(key, v, n(r.t[v]), lower(v))).join(" · ")}</em>
+      <span title="${esc(title)}">${esc(title)}${key === "rsvp" && filtered ? " (this view)" : ""}</span>
+      <strong>${chip(key, "Yes", n(r.t.Yes), "yes", true)} <small>of ${r.invited}</small></strong>
+      <em>${others.map((v) => chip(key, v, n(r.t[v]), short(v))).join(" · ")}</em>
     </div>`);
   };
-  answerCard("s-rsvp", Fields.get("person", "rsvp").label, "rsvp", "invited");
+  answerCard("rsvp", "s-rsvp", "Wedding RSVPs", "rsvp", "invited");
 
-  if (has("family", "hotel_status", "Yes Host Hotel") && has("family", "hotel_status", "Maybe Host Hotel")) {
+  if (!hidden.includes("hotel") && has("family", "hotel_status", "Yes Host Hotel") && has("family", "hotel_status", "Maybe Host Hotel")) {
     const hotel = withoutFilter("hotel_status", (fams) => ({
       yes: fams.filter((f) => f.hotel_status === "Yes Host Hotel").length,
       maybe: fams.filter((f) => f.hotel_status === "Maybe Host Hotel").length,
     }));
     tiles.push(`<div class="stat s-hotel">
-      <span>Host Hotel (families)</span>
+      <span>Host Hotel RSVPs</span>
       <strong>${chip("hotel_status", "Yes Host Hotel", hotel.yes, "yes", true)} · ${chip("hotel_status", "Maybe Host Hotel", hotel.maybe, "maybe", true)}</strong>
-      <em>${hotel.yes + hotel.maybe} rooms if every maybe comes</em>
+      <em>up to ${hotel.yes + hotel.maybe} families</em>
     </div>`);
   }
-  // One card per related event that is switched on.
-  for (const ev of Fields.events()) {
-    if (!ev.enabled) continue;
-    answerCard(`s-ev s-${ev.id}`, ev.name, ev.rsvpKey, "invited");
-  }
-  $("#stats").innerHTML = tiles.join("");
+  // One card per related event that is switched on, in the order of the events.
+  for (const ev of Fields.events()) if (ev.enabled) answerCard("ev:" + ev.id, `s-ev s-${ev.id}`, ev.name, ev.rsvpKey, "invited");
+  statTiles = tiles;
+  drawStats();
 }
 
 function renderFilters() {
@@ -935,6 +957,7 @@ async function applyBulk() {
 // ---------- Hooks for Settings ----------
 // Renaming a value in Settings > Fields can carry the guests that use it along with it.
 window.AppHooks = {
+  refreshStats: () => renderStats(),
   async renameValue(scope, key, oldV, newV) {
     const rows = scope === "family" ? state.families : state.people;
     const table = scope === "family" ? "families" : "people";
@@ -1315,6 +1338,11 @@ function wire() {
       state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : 1 };
       store("sort", state.sort);
       return render();
+    }
+    const navBtn = t.closest("[data-statnav]");
+    if (navBtn) {
+      statStart += Number(navBtn.dataset.statnav);
+      return drawStats();
     }
     const statBtn = t.closest("[data-stat]");
     if (statBtn) {

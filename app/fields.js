@@ -105,7 +105,7 @@ window.Fields = (() => {
     { id: "bachelorette", name: "Bachelorette Party", enabled: true, rsvpKey: "ev_bachelorette" },
     { id: "bachelor", name: "Bachelor Party", enabled: false, rsvpKey: "ev_bachelor" },
     {
-      id: "rehearsal", name: "Rehearsal Dinner", enabled: true, rsvpKey: "rd_status", rsvp: { values: RSVP(), default: "TBD" },
+      id: "rehearsal", name: "Rehearsal Dinner", enabled: true, rsvpKey: "rd_status",
       fields: [F("rd_invited", "Rehearsal dinner invited", "number", null, { allowed: ["number"], default: 0 })],
     },
     {

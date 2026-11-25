@@ -25,6 +25,7 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
   in the to-do app's Supabase project, reusing its allowlist and security rules.
 - `supabase/03_blist.sql` adds the `gl_blist` table for the B-list.
 - `supabase/04_settings.sql` adds the `gl_settings` table (saved theme and colors).
+- `supabase/07_rehearsal_rsvp.sql` moves Rehearsal Dinner to the standard RSVP values (everyone n/a). Run once.
 - `supabase/05_open_values.sql` removes the fixed value lists from the database so Settings > Fields can add and rename values.
 - `app/fields.js` holds the built-in fields and their defaults; the Fields settings are stored as overrides on top of them.
 - `app/theme.js` is the theme engine (themes, background patterns, color math); `app/settings.js` is the Settings page.

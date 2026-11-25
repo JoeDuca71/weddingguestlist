@@ -110,7 +110,7 @@ function buildModel() {
   const fil = (scope, key, extra = {}) => {
     const f = Fields.get(scope, key);
     if (!f?.enabled || f.type === "multiselect") return null;
-    return { key, label: f.label, person: scope === "person", options: hasVals(f) ? f.values.map((x) => x.v) : undefined, blank: scope === "family" && f.nullable, ...extra };
+    return { key, label: f.label, person: scope === "person", options: Fields.hasValues(f.type) ? f.values.map((x) => x.v) : undefined, blank: scope === "family" && f.nullable, ...extra };
   };
   FILTERS = [
     fil("person", "rsvp"),
@@ -118,7 +118,6 @@ function buildModel() {
     fil("family", "live_in_town"),
     fil("family", "invite_status"),
     fil("family", "hotel_status"),
-    pOn("rd_invited") && { key: "rd_inv", label: lab("person", "rd_invited"), person: true, options: ["Yes", "No"], get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
     ...events.map((ev) => fil("person", ev.rsvpKey)),
     fil("person", "table_status"),
     fil("person", "role"),

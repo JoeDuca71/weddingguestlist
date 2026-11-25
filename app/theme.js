@@ -114,6 +114,85 @@ window.Theme = (() => {
         ],
       };
     },
+
+    modern: (s, c, base) => ({ base, layers: [["linear-gradient(transparent, transparent)"]] }),
+    custom: (s, c, base) => ({
+      base,
+      layers: [[`radial-gradient(${rgba(c.unknown, s === "dark" ? 0.3 : 0.45)} 1px, transparent 1.6px)`, "24px 24px", "repeat"]],
+    }),
+    boho: (s, c, base) => {
+      const o = s === "dark" ? 0.3 : 0.5;
+      const arch = (x, w, h, col, sw) => `<path d='M${x} 150 V${150 - h} A${w / 2} ${w / 2} 0 0 1 ${x + w} ${150 - h} V150' fill='none' stroke='${col}' stroke-width='${sw}'/>`;
+      const plume = (x, y, rot) => {
+        let p = `<path d='M${x} ${y + 40} Q${x + 3} ${y + 20} ${x} ${y}' stroke='${c.process}' fill='none' stroke-width='1.2'/>`;
+        for (let i = 0; i < 7; i++) p += `<path d='M${x} ${y + 6 + i * 4} q${i % 2 ? 9 : -9} -7 ${i % 2 ? 13 : -13} -16' stroke='${c.process}' fill='none' stroke-width='1' stroke-linecap='round'/>`;
+        return `<g transform='rotate(${rot} ${x} ${y + 40})'>${p}</g>`;
+      };
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><g opacity='${o}'>` +
+        arch(30, 90, 52, c.todo, 2.4) + arch(42, 66, 44, c.done, 2) + arch(54, 42, 36, c.todo, 1.6) +
+        plume(16, 86, -12) + plume(136, 80, 14) + `</g></svg>`;
+      return { base, layers: [[uri(svg), "150px 150px", "repeat"]] };
+    },
+    rustic: (s, c, base) => {
+      const o = s === "dark" ? 0.22 : 0.4;
+      const pine = (x, y, k) =>
+        `<g transform='translate(${x} ${y}) scale(${k})' fill='${c.done}'><path d='M0 -34 L12 -14 H5 L16 4 H6 L20 24 H-20 L-6 4 H-16 L-5 -14 H-12 Z'/><rect x='-3' y='24' width='6' height='9' fill='${c.todo}'/></g>`;
+      const antler = (x, y, flip) =>
+        `<g transform='translate(${x} ${y}) scale(${flip} 1)' fill='none' stroke='${c.todo}' stroke-width='2.2' stroke-linecap='round'><path d='M0 18 Q4 4 14 -6 M8 4 Q16 4 22 -2 M10 -2 Q10 -12 16 -18 M0 18 Q-4 4 -14 -6 M-8 4 Q-16 4 -22 -2 M-10 -2 Q-10 -12 -16 -18'/></g>`;
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><g opacity='${o}'>` +
+        pine(34, 50, 1) + pine(112, 38, 0.8) + pine(76, 132, 1.05) + antler(122, 112, 1) + antler(24, 128, -1) +
+        `</g></svg>`;
+      return { base, layers: [[uri(svg), "160px 160px", "repeat"]] };
+    },
+    deco: (s, c, base) => {
+      const o = s === "dark" ? 0.55 : 0.5;
+      const arcs = (cx, cy) => [8, 16, 24, 32, 40].map((r) => `<circle cx='${cx}' cy='${cy}' r='${r}'/>`).join("");
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='80' height='40' viewBox='0 0 80 40'><g fill='none' stroke='${c.process}' stroke-width='1' opacity='${o}'>` +
+        arcs(40, 40) + arcs(0, 0) + arcs(80, 0) + `</g></svg>`;
+      return { base, layers: [[uri(svg), "80px 40px", "repeat"]] };
+    },
+    vineyard: (s, c, base) => {
+      const o = s === "dark" ? 0.25 : 0.42;
+      const grapes = (x, y, k) => {
+        let g = "";
+        [[0, 0], [10, 0], [20, 0], [5, 9], [15, 9], [10, 18]].forEach(([dx, dy]) => (g += `<circle cx='${dx}' cy='${dy}' r='5.2' fill='${c.todo}'/>`));
+        return `<g transform='translate(${x} ${y}) scale(${k})'>${g}<path d='M10 -4 q-2 -9 -8 -12' stroke='${c.done}' stroke-width='1.6' fill='none'/></g>`;
+      };
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><g opacity='${o}'>` +
+        `<path d='M0 30 Q40 6 75 34 T150 30' stroke='${c.done}' stroke-width='1.6' fill='none'/>` +
+        leaf(28, 22, 12, -50, c.done) + leaf(100, 22, 12, 40, c.done) + leaf(60, 56, 11, 130, c.done) +
+        grapes(32, 70, 1) + grapes(104, 96, 0.85) + leaf(120, 128, 11, -30, c.done) + leaf(18, 132, 10, 60, c.done) +
+        `</g></svg>`;
+      return { base, layers: [[uri(svg), "150px 150px", "repeat"]] };
+    },
+    winter: (s, c, base) => {
+      const col = s === "dark" ? "#cfe0f5" : "#8fb0d4";
+      const o = s === "dark" ? 0.3 : 0.55;
+      const flake = (x, y, r) => {
+        let p = "";
+        for (let i = 0; i < 3; i++)
+          p += `<g transform='rotate(${i * 60})'><path d='M0 ${-r} V${r} M0 ${-r * 0.55} l${r * 0.22} ${-r * 0.2} M0 ${-r * 0.55} l${-r * 0.22} ${-r * 0.2} M0 ${r * 0.55} l${r * 0.22} ${r * 0.2} M0 ${r * 0.55} l${-r * 0.22} ${r * 0.2}'/></g>`;
+        return `<g transform='translate(${x} ${y})'>${p}</g>`;
+      };
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'><g fill='none' stroke='${col}' stroke-width='1.4' stroke-linecap='round' opacity='${o}'>` +
+        flake(36, 34, 16) + flake(104, 78, 11) + flake(48, 108, 8) + flake(120, 20, 6) +
+        `</g><g fill='${col}' opacity='${o}'><circle cx='80' cy='28' r='1.8'/><circle cx='14' cy='78' r='1.6'/><circle cx='86' cy='120' r='1.8'/></g></svg>`;
+      return { base, layers: [[uri(svg), "140px 140px", "repeat"]] };
+    },
+    autumn: (s, c, base) => {
+      const o = s === "dark" ? 0.25 : 0.46;
+      const svg =
+        `<svg xmlns='http://www.w3.org/2000/svg' width='170' height='170' viewBox='0 0 170 170'><g opacity='${o}'>` +
+        leaf(34, 34, 17, 30, c.process) + leaf(112, 24, 15, -40, c.todo) + leaf(150, 80, 16, 70, "#a9701f") +
+        leaf(60, 92, 16, -20, c.todo) + leaf(110, 140, 15, 50, c.process) + leaf(26, 148, 14, -60, c.done) + leaf(84, 52, 10, 100, "#a9701f") +
+        `</g></svg>`;
+      return { base, layers: [[uri(svg), "170px 170px", "repeat"]] };
+    },
   };
 
   // ---------- Themes ----------
@@ -149,8 +228,57 @@ window.Theme = (() => {
       light: { base: "#e3e6eb", surface2: "#eef0f4", border: "#d3d7de" },
       dark: { base: "#0f0c15", surface: "#1c1726", surface2: "#261f33", border: "#3a3248" },
     },
+
+    modern: {
+      name: "Modern", blurb: "Plain white, one bold accent", font: '"Jost", system-ui, sans-serif',
+      header: "#111111", accent: "#2f5bff",
+      colors: { done: "#1f9d6b", process: "#f2a900", todo: "#e5484d", unknown: "#9aa0a6" },
+      light: { base: "#ffffff", surface2: "#f5f5f6", border: "#e4e4e7" }, dark: { base: "#0f0f10" },
+    },
+    boho: {
+      name: "Boho", blurb: "Arches and pampas grass, terracotta and sage", font: '"DM Serif Display", Georgia, serif',
+      header: "#5a3d31", accent: "#c1694f",
+      colors: { done: "#8da47e", process: "#e2a85a", todo: "#c4684d", unknown: "#c7bcae" },
+      light: { base: "#f6efe6", surface2: "#f0e6d9", border: "#e3d5c3" }, dark: { base: "#1a1410" },
+    },
+    rustic: {
+      name: "Rustic", blurb: "Pine trees, antlers, greenery", font: '"Rokkitt", Georgia, serif',
+      header: "#2d2a22", accent: "#4f7a4b",
+      colors: { done: "#4f7a4b", process: "#c99a3e", todo: "#a5482f", unknown: "#9a9484" },
+      light: { base: "#ece5d6", surface2: "#e4dccb", border: "#d3c9b3" }, dark: { base: "#12150f" },
+    },
+    deco: {
+      name: "Art Deco", blurb: "Gold fans on black", font: '"Poiret One", Georgia, serif',
+      header: "#0b0b0b", accent: "#b8922b", stripe: (c) => `linear-gradient(90deg, ${c.process}, ${c.process})`,
+      colors: { done: "#3c9b7a", process: "#d4af37", todo: "#b3344a", unknown: "#8d8a82" },
+      light: { base: "#f3ecdc", surface2: "#ece3cf", border: "#dccfb2" }, dark: { base: "#0a0a0a" },
+    },
+    vineyard: {
+      name: "Vineyard", blurb: "Grapevines in burgundy and olive", font: '"Cormorant Garamond", Georgia, serif',
+      header: "#3a1220", accent: "#7b1e3a",
+      colors: { done: "#7a8b3a", process: "#d6a24a", todo: "#8c2a3f", unknown: "#b0a8a0" },
+      light: { base: "#f3ebe6", surface2: "#ece1db", border: "#ddcfc7" }, dark: { base: "#150a0e" },
+    },
+    winter: {
+      name: "Winter", blurb: "Snowflakes, icy blues", font: '"Quicksand", system-ui, sans-serif',
+      header: "#1b2b44", accent: "#3b7dd8",
+      colors: { done: "#4aa391", process: "#f0b84a", todo: "#d9576b", unknown: "#a9b6c4" },
+      light: { base: "#eef3f8", surface2: "#e6edf5", border: "#d3dde9" }, dark: { base: "#0d1522" },
+    },
+    autumn: {
+      name: "Autumn", blurb: "Falling leaves, rust and gold", font: '"Lora", Georgia, serif',
+      header: "#3d2415", accent: "#c4622d",
+      colors: { done: "#7d8f3a", process: "#e0922f", todo: "#b5442a", unknown: "#b0a493" },
+      light: { base: "#f4e9d8", surface2: "#ecdfca", border: "#dccdb2" }, dark: { base: "#18110b" },
+    },
+    custom: {
+      name: "Custom", blurb: "Pick your own colors", font: '"Jost", system-ui, sans-serif',
+      header: "#1d1b26", accent: "#7c4dff",
+      colors: { done: "#2e9e6b", process: "#f0a30a", todo: "#e0475b", unknown: "#9aa1ab" },
+      light: { base: "#f4f4f6", surface2: "#ececf0", border: "#dcdce2" }, dark: { base: "#101015" },
+    },
   };
-  const THEME_ORDER = ["floral", "formal", "country", "beach", "disco"];
+  const THEME_ORDER = ["floral", "formal", "country", "beach", "disco", "modern", "boho", "rustic", "deco", "vineyard", "winter", "autumn", "custom"];
   const DEFAULT_THEME = "disco";
 
   // The four states, what they mean, and which statuses use each. The pill classes in styles.css follow this.

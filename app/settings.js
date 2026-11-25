@@ -7,8 +7,8 @@
 window.Settings = (() => {
   const SECTIONS = [
     { key: "couple", label: "💍 The Happy Couple" },
-    { key: "fields", label: "🧩 Fields" },
     { key: "design", label: "🎨 Design" },
+    { key: "fields", label: "🧩 Fields" },
   ];
   let section = "couple";
   let saveTimer;
@@ -96,7 +96,7 @@ window.Settings = (() => {
   }
 
   // ---------- Rendering ----------
-  const examplePills = (examples, key) => examples.map((e) => `<span class="pill c-${key}">${esc(e)}</span>`).join(" ");
+  const examplePills = (examples, key) => `<span class="muted ex-label">examples:</span> ` + examples.map((e) => `<span class="pill c-${key}">${esc(e)}</span>`).join(" ");
 
   function themeCardHtml(id, selected) {
     const t = Theme.THEMES[id];
@@ -151,15 +151,14 @@ window.Settings = (() => {
       <label class="field"><span>Role</span><select data-crole="${i}">${optionsHtml(ROLES, couple[i].role, { blank: true })}</select></label>
     </div>`;
     return `
-      <h3>The Happy Couple</h3>
+      <h3>The Happy Couple<span class="couple-line" id="couple-line">${coupleLine()}</span></h3>
       <p class="muted">Who is getting married. Two brides, two grooms, or one of each: pick a role for each person.</p>
-      <div class="partners">${card(0)}${card(1)}</div>
-      <p class="couple-line" id="couple-line">${coupleLine()}</p>`;
+      <div class="partners">${card(0)}${card(1)}</div>`;
   }
   function coupleLine() {
     const n = coupleNames();
     const roles = couple.every((p) => p.name.trim() && p.role) ? couple.map((p) => p.role).join(" & ") : "";
-    return n ? `<strong>${esc(n)}</strong>${roles ? ` <span class="muted">· ${esc(roles)}</span>` : ""}` : "";
+    return n ? `: ${esc(n)}${roles ? ` · ${esc(roles)}` : ""}` : "";
   }
 
   function designHtml() {
@@ -171,7 +170,7 @@ window.Settings = (() => {
 
       <div class="settings-row-head"><h3>Status colors</h3>
         <button type="button" class="btn small" data-reset-colors ${Theme.isCustom(s) ? "" : "disabled"}>Reset to ${esc(t.name)} defaults</button></div>
-      <p class="muted">These four colors show up on every status pill and highlight in the guest list. Pick any color; the soft background and readable text are worked out for you.</p>
+      <p class="muted">These first four colors show up on every status pill and highlight in the guest list. Pick any color; the soft background and readable text are worked out for you.</p>
       <div class="color-list">
         ${Theme.STATES.map((st) => colorRowHtml(st.key, st.label, st.note, r.colors[st.key], r.colors[st.key] === t.colors[st.key], examplePills(st.examples, st.key))).join("")}
         ${colorRowHtml("accent", "Accent", "Buttons, links, selected tabs and the header stripe", r.accent, r.accent === t.accent, `<span class="btn primary small" aria-hidden="true">Button</span>`)}
@@ -311,7 +310,7 @@ window.Settings = (() => {
       .map((sec) => {
         const mine = list.filter((f) => f.section === sec.id);
         return `<div class="fsec" data-sec="${sec.id}">
-          <div class="fsec-head"><input type="text" class="sec-name" data-secname value="${esc(sec.name)}" placeholder="(no title)" maxlength="60" aria-label="Section name"></div>
+          <div class="fsec-head"><input type="text" class="sec-name" data-secname value="${esc(sec.name)}" placeholder="(no title)" maxlength="60" aria-label="Section name" style="width:${Math.max(8, sec.name.length + 2)}ch"><span class="sec-word">Section</span></div>
           ${mine.map((f) => fieldCardHtml(scopeNow(), f, secs)).join("")}
           ${rolled(sec.id)}
           ${!mine.length && !rolled(sec.id) ? `<p class="muted pad">No fields in this section. Move one here from another section.</p>` : ""}
@@ -320,7 +319,8 @@ window.Settings = (() => {
       .join("");
     return `
       <h3>Fields</h3>
-      <p class="muted">What you keep track of. Turn fields off, rename them, change their type, and set the values and colors a drop down offers. Changes apply to everyone right away.</p>
+      <p class="muted">What you keep track of. Turn fields off, rename them, change their type, and set the values and colors a drop down offers. Changes apply to everyone right away. Disabling a field will not erase any existing data.</p>
+      <p class="muted">&nbsp;</p>
       <div class="vbtns" role="tablist">
         <button type="button" class="vbtn ${fieldScope === "family" ? "on" : ""}" data-fscope="family">Family fields</button>
         <button type="button" class="vbtn ${fieldScope === "person" ? "on" : ""}" data-fscope="person">People fields</button>
@@ -428,6 +428,7 @@ window.Settings = (() => {
       }
       if (el.dataset.secname !== undefined) {
         const id = el.closest(".fsec").dataset.sec;
+        el.style.width = Math.max(8, el.value.length + 2) + "ch";
         const o = Fields.getOverrides();
         (o[scopeNow()].sections ||= {})[id] = el.value;
         Fields.setOverrides(o);

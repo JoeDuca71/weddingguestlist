@@ -83,12 +83,15 @@ function buildModel() {
     pOn("table_status") && col("person", "table_status"),
     pOn("table_number") && col("person", "table_number"),
     pOn("role") && { key: "roles", label: lab("person", "role") + "s", get: (f) => uniqJoin(f.people.map((p) => p.role).filter((r) => r !== "Guest")) },
-    ...["address", "city", "state", "zip"].map((k) => fOn(k) && col("family", k)),
+    ...["address", "address2", "city", "state", "zip", "country"].map((k) => fOn(k) && col("family", k)),
     pOn("phone") && { key: "phones", label: lab("person", "phone"), get: (f) => uniqJoin(f.people.map((p) => p.phone)) },
     pOn("email") && { key: "emails", label: lab("person", "email"), get: (f) => uniqJoin(f.people.map((p) => p.email)) },
     fOn("gift") && col("family", "gift"),
     fOn("thank_you_sent") && col("family", "thank_you_sent"),
     fOn("notes") && col("family", "notes"),
+    // Fields the user added to a section.
+    ...Fields.list("family").filter((f) => f.custom && f.enabled).map((f) => col("family", f.key)),
+    ...Fields.list("person").filter((f) => f.custom && f.enabled).map((f) => ({ key: f.key, label: f.label, get: (fam) => uniqJoin(fam.people.map((p) => p[f.key])) })),
   ];
   COLUMNS = all.filter(Boolean);
   COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
@@ -97,7 +100,7 @@ function buildModel() {
     { name: "RSVPs", cols: ["family_name", "people", "party", "attending", "affiliation", "rsvp", "invite_status", "rd_invited", "rd_status", "notes"] },
     { name: "Seating", cols: ["family_name", "people", "attending", "affiliation", "rsvp", "table_status", "table_number", "notes"] },
     { name: "Hotel", cols: ["family_name", "attending", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation"] },
-    { name: "Gifts", cols: ["family_name", "attending", "affiliation", "rsvp", "gift", "thank_you_sent", "notes", "address", "city", "state", "zip"] },
+    { name: "Gifts", cols: ["family_name", "attending", "affiliation", "rsvp", "gift", "thank_you_sent", "notes", "address", "address2", "city", "state", "zip", "country"] },
   ];
   VIEWS = views.map((v) => ({ ...v, cols: v.cols.filter((k) => COL[k]) }));
   DEFAULT_COLUMNS = VIEWS[0].cols;
@@ -131,7 +134,7 @@ function buildModel() {
   BULK_FIELDS = [
     ...["affiliation", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation", "thank_you_sent"].filter(fOn).map((k) => bulkOf("family", k)),
     ...ROLLUPS.map((k) => bulkOf("people", k, ROLLUP_LABEL[k] + " (everyone)")),
-    ...["city", "state", "gift", "notes"].filter(fOn).map((k) => ({ ...bulkOf("family", k), type: "text" })),
+    ...["city", "state", "zip", "country", "gift", "notes"].filter(fOn).map((k) => ({ ...bulkOf("family", k), type: "text" })),
   ];
   OPT_VALUES = new Set([...Fields.list("family"), ...Fields.list("person")].flatMap((f) => f.values.map((x) => x.v)));
 }
@@ -251,54 +254,62 @@ function makeSupabaseApi() {
       if (page.length < 1000) return rows;
     }
   }
-  // gl_people keeps the original fields as columns. Answers for related events that were added later live in one
-  // jsonb column ("extra"), so adding an event or field never needs a database change. The app sees them flat.
-  const PEOPLE_COLS = new Set(["id", "family_id", "sort_order", "first_name", "last_name", "role", "invited", "rsvp", "rd_invited", "rd_status", "afterparty", "afterparty_swag", "table_status", "table_number", "phone", "email", "notes", "created_at", "updated_at", "extra"]);
-  let hasExtra = true, warnedExtra = false;
+  // The original fields are real columns. Answers for anything added later (related events, extra fields, Apartment/Unit,
+  // Country) live in one jsonb column ("extra") on each table, so adding a field never needs a database change.
+  // The app sees them flat.
+  const COLS = {
+    gl_people: new Set(["id", "family_id", "sort_order", "first_name", "last_name", "role", "invited", "rsvp", "rd_invited", "rd_status", "afterparty", "afterparty_swag", "table_status", "table_number", "phone", "email", "notes", "created_at", "updated_at", "extra"]),
+    gl_families: new Set(["id", "family_name", "affiliation", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation", "address", "city", "state", "zip", "gift", "thank_you_sent", "notes", "knot_ref", "created_at", "updated_at", "extra"]),
+  };
+  const hasExtra = { gl_people: true, gl_families: true };
+  let warnedExtra = false;
   const fromDb = ({ extra, ...r }) => ({ ...(extra || {}), ...r });
-  const split = (r) => {
+  const split = (t, r) => {
     const real = {}, ex = {};
-    for (const [k, v] of Object.entries(r)) if (k !== "_family") (PEOPLE_COLS.has(k) ? real : ex)[k] = v;
+    for (const [k, v] of Object.entries(r)) if (k !== "_family" && k !== "people") (COLS[t].has(k) ? real : ex)[k] = v;
     return [real, ex];
   };
   const noExtra = () => {
     if (warnedExtra) return;
     warnedExtra = true;
-    toast("Run supabase/06_related_events.sql so answers for the new events are saved.", true);
+    toast("Run supabase/06_related_events.sql and 08_family_extra.sql so answers for the newer fields are saved.", true);
   };
-  const toDb = (r) => {
-    const [real, ex] = split(r);
-    if (Object.keys(ex).length) hasExtra ? (real.extra = ex) : noExtra();
+  const toDb = (t, r) => {
+    const [real, ex] = split(t, r);
+    if (Object.keys(ex).length) hasExtra[t] ? (real.extra = ex) : noExtra();
     return real;
   };
+  // Update many rows; answers kept in "extra" are merged per row.
+  async function updateRows(t, ids, patch, stateKey) {
+    if (!ids.length) return [];
+    const [real, ex] = split(t, patch);
+    const q = () => sb.from(t);
+    if (!Object.keys(ex).length) return check(await q().update(real).in("id", ids).select()).map(fromDb);
+    if (!hasExtra[t]) {
+      noExtra();
+      return Object.keys(real).length ? check(await q().update(real).in("id", ids).select()).map(fromDb) : [];
+    }
+    const out = [];
+    for (const id of ids) {
+      const cur = state[stateKey].find((p) => p.id === id) || {};
+      const mine = Object.fromEntries(Object.entries(cur).filter(([k]) => !COLS[t].has(k) && k !== "_family" && k !== "people"));
+      out.push(...check(await q().update({ ...real, extra: { ...mine, ...ex } }).eq("id", id).select()).map(fromDb));
+    }
+    return out;
+  }
   return {
     load: async () => {
-      const people = await all("gl_people");
-      if (people.length) hasExtra = "extra" in people[0];
-      return { families: await all("gl_families"), people: people.map(fromDb) };
+      const [families, people] = [await all("gl_families"), await all("gl_people")];
+      if (people.length) hasExtra.gl_people = "extra" in people[0];
+      if (families.length) hasExtra.gl_families = "extra" in families[0];
+      return { families: families.map(fromDb), people: people.map(fromDb) };
     },
-    insertFamily: async (row) => check(await sb.from("gl_families").insert(strip(row)).select().single()),
-    updateFamilies: async (ids, patch) => check(await sb.from("gl_families").update(patch).in("id", ids).select()),
+    insertFamily: async (row) => fromDb(check(await sb.from("gl_families").insert(toDb("gl_families", strip(row))).select().single())),
+    updateFamilies: (ids, patch) => updateRows("gl_families", ids, patch, "families"),
     deleteFamily: async (id) => check(await sb.from("gl_families").delete().eq("id", id)),
-    insertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").insert(rows.map((r) => toDb(strip(r)))).select()).map(fromDb) : []),
-    upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map((r) => toDb(strip(r)))).select()).map(fromDb) : []),
-    updatePeople: async (ids, patch) => {
-      if (!ids.length) return [];
-      const [real, ex] = split(patch);
-      if (!Object.keys(ex).length) return check(await sb.from("gl_people").update(real).in("id", ids).select()).map(fromDb);
-      if (!hasExtra) {
-        noExtra();
-        return Object.keys(real).length ? check(await sb.from("gl_people").update(real).in("id", ids).select()).map(fromDb) : [];
-      }
-      // Answers kept in "extra" are merged per person.
-      const out = [];
-      for (const id of ids) {
-        const cur = state.people.find((p) => p.id === id) || {};
-        const mine = Object.fromEntries(Object.entries(cur).filter(([k]) => !PEOPLE_COLS.has(k) && k !== "_family"));
-        out.push(...check(await sb.from("gl_people").update({ ...real, extra: { ...mine, ...ex } }).eq("id", id).select()).map(fromDb));
-      }
-      return out;
-    },
+    insertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").insert(rows.map((r) => toDb("gl_people", strip(r)))).select()).map(fromDb) : []),
+    upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map((r) => toDb("gl_people", strip(r)))).select()).map(fromDb) : []),
+    updatePeople: (ids, patch) => updateRows("gl_people", ids, patch, "people"),
     deletePeople: async (ids) => (ids.length ? check(await sb.from("gl_people").delete().in("id", ids)) : null),
     // Settings live in their own table so the rest of the app works before its SQL has been run.
     loadSettings: async () => {
@@ -316,7 +327,7 @@ function makeSupabaseApi() {
         .on("postgres_changes", { event: "*", schema: "public", table: "gl_blist" }, (p) => onChange("blist", p))
         .subscribe();
       sb.channel("guests")
-        .on("postgres_changes", { event: "*", schema: "public", table: "gl_families" }, (p) => onChange("families", p))
+        .on("postgres_changes", { event: "*", schema: "public", table: "gl_families" }, (p) => onChange("families", p.new && p.new.id ? { ...p, new: fromDb(p.new) } : p))
         .on("postgres_changes", { event: "*", schema: "public", table: "gl_people" }, (p) => onChange("people", p.new && p.new.id ? { ...p, new: fromDb(p.new) } : p))
         .subscribe();
     },
@@ -429,6 +440,8 @@ function removeLocal(table, id) {
 function hydrate() {
   const fields = Fields.list("person");
   for (const p of state.people) for (const f of fields) if (p[f.key] === undefined) p[f.key] = PERSON_DEFAULTS[f.key];
+  const ffields = Fields.list("family");
+  for (const f of state.families) for (const d of ffields) if (f[d.key] === undefined) f[d.key] = FAMILY_DEFAULTS[d.key];
 }
 
 // Families with their people attached and rollups filled in.

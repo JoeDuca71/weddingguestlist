@@ -10,10 +10,10 @@ window.Fields = (() => {
   // The colors a value can use: the four status colors and the accent from Settings > Design, or none.
   const COLORS = [
     ["none", "Plain (no color)"],
-    ["done", "Done"],
-    ["process", "In process"],
-    ["todo", "To do"],
-    ["unknown", "Unknown"],
+    ["done", "Color 1 / Done"],
+    ["process", "Color 2 / In process"],
+    ["todo", "Color 3 / To do"],
+    ["unknown", "Color 4 / Unknown"],
     ["accent", "Accent"],
     ["muted", "Muted (struck through)"],
   ];
@@ -29,7 +29,7 @@ window.Fields = (() => {
   // allowed: which types make sense for the field (names and counts are fixed; fields that feed rules are drop downs).
   const F = (key, label, type, section, o = {}) => ({
     key, label, type, section, values: [], default: "", nullable: false, allowed: ANY, locked: [],
-    noDisable: false, input: null, rollup: false, rollSection: null, hint: "", combo: false, ...o,
+    noDisable: false, input: null, rollup: false, rollSection: null, hint: "", combo: false, partner: false, ...o,
   });
 
   const RSVP = () => L([["TBD", "unknown"], ["Yes", "done"], ["No", "muted"], ["Maybe", "process"]]);
@@ -45,8 +45,8 @@ window.Fields = (() => {
         F("family_name", "Family name", "text", "f_family", { allowed: ["text"], noDisable: true, hint: "How we address them, e.g. The Brad Johnson Family" }),
         F("affiliation", "Affiliation", "dropdown", "f_family", {
           values: L(["{p1}", "{p2}"].flatMap((p) => ["Friend – Childhood", "Friend – School", "Friend – College", "Friend – Work", "Friend", "Family"].map((x) => [`${p} ${x}`])).concat([["Mutual Friend"]])),
-          nullable: true, default: null, allowed: ["dropdown"],
-          hint: "{p1} and {p2} are the first and second partner from The Happy Couple. Use them in any value.",
+          nullable: true, default: null, allowed: ["dropdown"], partner: true,
+          hint: "Pick which partner each value belongs to; the names come from The Happy Couple.",
         }),
         F("invite_status", "Invite status", "dropdown", "f_invite", {
           values: L([["Not Contacted", "todo"], ["Need to Text for Address", "todo"], ["Texted for Address", "process"], ["Emailed", "process"], ["Postcard Sent", "process"], ["Texted for RSVP", "process"], ["Done", "done"]]),
@@ -64,9 +64,11 @@ window.Fields = (() => {
           values: L([["Self"], ["Hotel Shuttle"], ["Tracey BnB Shuttle"], ["Unknown"]]), default: "Unknown", allowed: ["dropdown"], locked: ["Self"],
         }),
         F("address", "Address", "text", "f_address"),
+        F("address2", "Apartment/Unit", "text", "f_address"),
         F("city", "City", "text", "f_address"),
-        F("state", "State", "text", "f_address"),
-        F("zip", "Zip", "text", "f_address"),
+        F("state", "State/Province", "text", "f_address"),
+        F("zip", "Zip/Postal Code", "text", "f_address"),
+        F("country", "Country", "text", "f_address"),
         F("gift", "Gift", "longtext", "f_gifts"),
         F("thank_you_sent", "Thank-you sent?", "checkbox", "f_gifts", { values: YESNO(), default: "No" }),
         F("notes", "Notes", "longtext", "f_gifts"),
@@ -163,12 +165,14 @@ window.Fields = (() => {
     return out;
   }
   // Sections and fields the user can configure, for one scope, given the events.
-  function baseScope(scope, events) {
-    if (scope === "family") return DEFAULTS.family;
+  // Fields the user added to a section (stored as overrides[scope].custom = [{key, label, section}]).
+  const customDefs = (list, sec) => (list || []).map((c) => F(c.key, c.label, "text", c.section, { allowed: [...ANY, "number"], added: true, custom: true }));
+  function baseScope(scope, events, custom) {
+    if (scope === "family") return { sections: DEFAULTS.family.sections, fields: [...DEFAULTS.family.fields, ...customDefs(custom)] };
     const P = DEFAULTS.person;
     return {
       sections: [...P.sectionsHead, ...events.map((e) => [e.section, e.name, null, true]), ...P.sectionsTail],
-      fields: [...P.fields, ...eventFieldDefs(events)],
+      fields: [...P.fields, ...eventFieldDefs(events), ...customDefs(custom)],
     };
   }
 
@@ -188,9 +192,15 @@ window.Fields = (() => {
   let cache = null;
   const listeners = [];
 
-  const str = (v, max = 60) => String(v ?? "").trim().slice(0, max);
+  const MAX_NAME = 50; // longest field, section, event or value name
+  const str = (v, max = MAX_NAME) => String(v ?? "").trim().slice(0, max);
   // Value names can't contain commas: a multi-select stores its picks as one comma-separated text.
-  const valueName = (v) => str(String(v ?? "").replace(/,/g, " ").replace(/\s+/g, " "));
+  // A leading {p1}/{p2} (the partner) doesn't count toward the length.
+  const valueName = (v) => {
+    const clean = String(v ?? "").replace(/,/g, " ").replace(/\s+/g, " ").trim();
+    const m = /^(\{p[12]\}\s?)(.*)$/.exec(clean);
+    return m ? m[1] + str(m[2]) : str(clean);
+  };
 
   function cleanValues(arr) {
     if (!Array.isArray(arr)) return null;
@@ -208,7 +218,15 @@ window.Fields = (() => {
     const out = { family: {}, person: {}, events: cleanEvents(o?.events) };
     const evs = resolveEvents(out.events);
     for (const scope of SCOPES) {
-      const src = o?.[scope] || {}, D = baseScope(scope, evs), dst = out[scope];
+      const src = o?.[scope] || {};
+      const base0 = baseScope(scope, evs), seen = new Set(base0.fields.map((f) => f.key));
+      const custom = (Array.isArray(src.custom) ? src.custom : []).filter((c) => {
+        if (!idOk(c?.key, "x_") || seen.has(c.key) || !base0.sections.some((x) => x[0] === c.section && !x[3])) return false;
+        seen.add(c.key);
+        return true;
+      }).map((c) => ({ key: c.key, label: str(c.label) || "New field", section: c.section }));
+      const D = baseScope(scope, evs, custom), dst = out[scope];
+      if (custom.length) dst.custom = custom;
       const secIds = D.sections.map((s) => s[0]), keys = D.fields.map((f) => f.key);
       for (const id of secIds) if (!id.startsWith("ev:") && typeof src.sections?.[id] === "string") dst.sections = { ...(dst.sections || {}), [id]: str(src.sections[id]) };
       if (Array.isArray(src.order)) dst.order = src.order.filter((k) => keys.includes(k));
@@ -232,7 +250,7 @@ window.Fields = (() => {
 
   // ---------- Resolving ----------
   function resolveScope(scope) {
-    const D = baseScope(scope, EV), o = overrides[scope] || {};
+    const D = baseScope(scope, EV, overrides[scope]?.custom), o = overrides[scope] || {};
     const sections = D.sections.map(([id, name, side, event]) => ({ id, name: o.sections?.[id] ?? name, side, event: !!event }));
     const known = (o.order || []).filter((k) => D.fields.some((f) => f.key === k));
     const order = [...known, ...D.fields.map((f) => f.key).filter((k) => !known.includes(k))];
@@ -289,7 +307,7 @@ window.Fields = (() => {
   const sections = (scope) => resolved()[scope].sections;
   const get = (scope, key) => list(scope).find((f) => f.key === key);
   const optionValues = (scope, key) => (get(scope, key)?.values || []).map((x) => x.v);
-  const defaultOf = (scope, key) => baseScope(scope, EV).fields.find((f) => f.key === key);
+  const defaultOf = (scope, key) => baseScope(scope, EV, overrides[scope]?.custom).fields.find((f) => f.key === key);
   // The related events with their fields (the field objects are the resolved ones from list("person")).
   const events = () =>
     EV.map((e) => ({

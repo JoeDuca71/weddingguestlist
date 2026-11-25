@@ -283,10 +283,10 @@ window.Theme = (() => {
 
   // The four states, what they mean, and which statuses use each. The pill classes in styles.css follow this.
   const STATES = [
-    { key: "done", label: "Done", note: "Finished or confirmed", examples: ["Yes", "Seated", "Delivered"] },
-    { key: "process", label: "In process", note: "In progress or waiting on someone", examples: ["Postcard Sent", "Maybe", "Emailed"] },
-    { key: "todo", label: "To do", note: "Still needs doing", examples: ["Not Contacted", "Need to Seat", "Need to Do"] },
-    { key: "unknown", label: "Unknown", note: "Not known yet", examples: ["TBD", "Unknown", "n/a"] },
+    { key: "done", label: "Color 1 / Done", note: "Finished or confirmed", examples: ["Yes", "Seated", "Delivered"] },
+    { key: "process", label: "Color 2 / In process", note: "In progress or waiting on someone", examples: ["Postcard Sent", "Maybe", "Emailed"] },
+    { key: "todo", label: "Color 3 / To do", note: "Still needs doing", examples: ["Not Contacted", "Need to Seat", "Need to Do"] },
+    { key: "unknown", label: "Color 4 / Unknown", note: "Not known yet", examples: ["TBD", "Unknown", "n/a"] },
   ];
   const STATE_KEYS = STATES.map((s) => s.key);
 

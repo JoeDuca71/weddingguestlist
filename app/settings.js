@@ -196,6 +196,10 @@ window.Settings = (() => {
       <p class="muted">A theme sets the background pattern, header, heading font, accent and the four status colors. You can fine-tune any color afterwards.</p>
       <div class="theme-grid">${Theme.THEME_ORDER.map((id) => themeCardHtml(id, id === s.theme)).join("")}</div>
 
+      <h3>Font</h3>
+      <p class="muted">Used for the title and headings. Each theme comes with the font that suits it; pick another any time.</p>
+      <label class="font-pick"><select data-sfont aria-label="Font" style="font-family:${Theme.FONTS[r.font].css}">${Theme.FONT_ORDER.map((id) => `<option value="${id}" style="font-family:${Theme.FONTS[id].css}" ${id === r.font ? "selected" : ""}>${esc(Theme.FONTS[id].name)}${id === t.font ? " (theme default)" : ""}</option>`).join("")}</select></label>
+
       <div class="settings-row-head"><h3>Status colors</h3>
         <button type="button" class="btn small" data-reset-colors ${Theme.isCustom(s) ? "" : "disabled"}>Reset to ${esc(t.name)} defaults</button></div>
       <p class="muted">These first four colors show up on every status pill and highlight in the guest list. Pick any color; the soft background and readable text are worked out for you.</p>
@@ -782,6 +786,10 @@ window.Settings = (() => {
         document.getElementById("couple-line").innerHTML = coupleLine();
         persist();
         return;
+      }
+      if (el.dataset.sfont !== undefined) {
+        changed({ ...Theme.get(), font: el.value });
+        return render();
       }
       if (!el.dataset.shex) return;
       const key = el.dataset.shex, h = Theme.hex(el.value);

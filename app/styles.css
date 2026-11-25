@@ -559,3 +559,5 @@ table.guests.preview { pointer-events: none; }
 .stat-pick span { display: grid; }
 .sec-static { font-weight: 700; font-size: 15px; }
 .fsec-head .sec-static + .sec-word { margin-left: 4px; }
+
+.font-pick select { font-size: 18px; padding: 8px 12px; min-width: 260px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }

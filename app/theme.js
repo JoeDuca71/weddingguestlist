@@ -195,34 +195,47 @@ window.Theme = (() => {
     },
   };
 
+  // ---------- Fonts ----------
+  // The font for the title and headings. Each theme has one it looks best with; the Design page can override it.
+  const FONTS = {
+    righteous: { name: "Righteous", css: '"Righteous", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+    montserrat: { name: "Montserrat", css: '"Montserrat", system-ui, sans-serif' },
+    poppins: { name: "Poppins", css: '"Poppins", system-ui, sans-serif' },
+    roboto: { name: "Roboto", css: '"Roboto", system-ui, sans-serif' },
+    lato: { name: "Lato", css: '"Lato", system-ui, sans-serif' },
+    playfair: { name: "Playfair Display", css: '"Playfair Display", Georgia, serif' },
+    merriweather: { name: "Merriweather", css: '"Merriweather", Georgia, serif' },
+  };
+  const FONT_ORDER = ["righteous", "montserrat", "poppins", "roboto", "lato", "playfair", "merriweather"];
+
   // ---------- Themes ----------
   const THEMES = {
     floral: {
-      name: "Floral", blurb: "Soft blossoms, pastel colors", font: '"Playfair Display", Georgia, serif',
+      name: "Floral", blurb: "Soft blossoms, pastel colors", font: "playfair",
       header: "#4b2e43", accent: "#d9789b",
       colors: { done: "#a8c8a0", process: "#f6d98b", todo: "#f2a0b5", unknown: "#c9c5cf" },
       light: { base: "#fbf3ee", surface2: "#f7ebe6", border: "#ead9d6" }, dark: { base: "#17111a" },
     },
     formal: {
-      name: "Formal", blurb: "Black tie, ivory and gold", font: '"Cinzel", Georgia, serif',
+      name: "Formal", blurb: "Black tie, ivory and gold", font: "playfair",
       header: "#14110f", accent: "#b8902f", stripe: (c) => `linear-gradient(90deg, ${c.process}, ${c.process})`,
       colors: { done: "#2f6b4f", process: "#c9a24a", todo: "#8c2f39", unknown: "#8a8f98" },
       light: { base: "#f4efe6", surface2: "#efe8da", border: "#ddd3bf" }, dark: { base: "#0e0d0b" },
     },
     country: {
-      name: "Country", blurb: "Gingham, kraft paper, barn red", font: '"Rokkitt", Georgia, serif',
+      name: "Country", blurb: "Gingham, kraft paper, barn red", font: "merriweather",
       header: "#4a3426", accent: "#b0483a",
       colors: { done: "#7a8f4e", process: "#d9a441", todo: "#b0483a", unknown: "#a39e93" },
       light: { base: "#f1e8d8", surface2: "#ebdfc9", border: "#dccdb0" }, dark: { base: "#16120d" },
     },
     beach: {
-      name: "Beach", blurb: "Sand, waves, bright colors", font: '"Fredoka", system-ui, sans-serif',
+      name: "Beach", blurb: "Sand, waves, bright colors", font: "poppins",
       header: "#0b4a5a", accent: "#12a6b8",
       colors: { done: "#1fbf9f", process: "#ffc53d", todo: "#ff6b5e", unknown: "#cfc6b3" },
       light: { base: "#f4eedd", surface2: "#ece9d8", border: "#ddd6bf" }, dark: { base: "#0b1619" },
     },
     disco: {
-      name: "Disco", blurb: "Mirror balls and neon", font: '"Righteous", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      name: "Disco", blurb: "Mirror balls and neon", font: "righteous",
       header: "#17121f", accent: "#ff2e93",
       colors: { done: "#a8e10c", process: "#ff7a1a", todo: "#ff2e93", unknown: "#a7aebb" },
       light: { base: "#e3e6eb", surface2: "#eef0f4", border: "#d3d7de" },
@@ -230,49 +243,49 @@ window.Theme = (() => {
     },
 
     modern: {
-      name: "Modern", blurb: "Plain white, one bold accent", font: '"Jost", system-ui, sans-serif',
+      name: "Modern", blurb: "Plain white, one bold accent", font: "montserrat",
       header: "#111111", accent: "#2f5bff",
       colors: { done: "#1f9d6b", process: "#f2a900", todo: "#e5484d", unknown: "#9aa0a6" },
       light: { base: "#ffffff", surface2: "#f5f5f6", border: "#e4e4e7" }, dark: { base: "#0f0f10" },
     },
     boho: {
-      name: "Boho", blurb: "Arches and pampas grass, terracotta and sage", font: '"DM Serif Display", Georgia, serif',
+      name: "Boho", blurb: "Arches and pampas grass, terracotta and sage", font: "playfair",
       header: "#5a3d31", accent: "#c1694f",
       colors: { done: "#8da47e", process: "#e2a85a", todo: "#c4684d", unknown: "#c7bcae" },
       light: { base: "#f6efe6", surface2: "#f0e6d9", border: "#e3d5c3" }, dark: { base: "#1a1410" },
     },
     rustic: {
-      name: "Rustic", blurb: "Pine trees, antlers, greenery", font: '"Rokkitt", Georgia, serif',
+      name: "Rustic", blurb: "Pine trees, antlers, greenery", font: "merriweather",
       header: "#2d2a22", accent: "#4f7a4b",
       colors: { done: "#4f7a4b", process: "#c99a3e", todo: "#a5482f", unknown: "#9a9484" },
       light: { base: "#ece5d6", surface2: "#e4dccb", border: "#d3c9b3" }, dark: { base: "#12150f" },
     },
     deco: {
-      name: "Art Deco", blurb: "Gold fans on black", font: '"Poiret One", Georgia, serif',
+      name: "Art Deco", blurb: "Gold fans on black", font: "montserrat",
       header: "#0b0b0b", accent: "#b8922b", stripe: (c) => `linear-gradient(90deg, ${c.process}, ${c.process})`,
       colors: { done: "#3c9b7a", process: "#d4af37", todo: "#b3344a", unknown: "#8d8a82" },
       light: { base: "#f3ecdc", surface2: "#ece3cf", border: "#dccfb2" }, dark: { base: "#0a0a0a" },
     },
     vineyard: {
-      name: "Vineyard", blurb: "Grapevines in burgundy and olive", font: '"Cormorant Garamond", Georgia, serif',
+      name: "Vineyard", blurb: "Grapevines in burgundy and olive", font: "merriweather",
       header: "#3a1220", accent: "#7b1e3a",
       colors: { done: "#7a8b3a", process: "#d6a24a", todo: "#8c2a3f", unknown: "#b0a8a0" },
       light: { base: "#f3ebe6", surface2: "#ece1db", border: "#ddcfc7" }, dark: { base: "#150a0e" },
     },
     winter: {
-      name: "Winter", blurb: "Snowflakes, icy blues", font: '"Quicksand", system-ui, sans-serif',
+      name: "Winter", blurb: "Snowflakes, icy blues", font: "lato",
       header: "#1b2b44", accent: "#3b7dd8",
       colors: { done: "#4aa391", process: "#f0b84a", todo: "#d9576b", unknown: "#a9b6c4" },
       light: { base: "#eef3f8", surface2: "#e6edf5", border: "#d3dde9" }, dark: { base: "#0d1522" },
     },
     autumn: {
-      name: "Autumn", blurb: "Falling leaves, rust and gold", font: '"Lora", Georgia, serif',
+      name: "Autumn", blurb: "Falling leaves, rust and gold", font: "merriweather",
       header: "#3d2415", accent: "#c4622d",
       colors: { done: "#7d8f3a", process: "#e0922f", todo: "#b5442a", unknown: "#b0a493" },
       light: { base: "#f4e9d8", surface2: "#ecdfca", border: "#dccdb2" }, dark: { base: "#18110b" },
     },
     custom: {
-      name: "Custom", blurb: "Pick your own colors", font: '"Jost", system-ui, sans-serif',
+      name: "Custom", blurb: "Pick your own colors", font: "roboto",
       header: "#1d1b26", accent: "#7c4dff",
       colors: { done: "#2e9e6b", process: "#f0a30a", todo: "#e0475b", unknown: "#9aa1ab" },
       light: { base: "#f4f4f6", surface2: "#ececf0", border: "#dcdce2" }, dark: { base: "#101015" },
@@ -292,21 +305,21 @@ window.Theme = (() => {
 
   // ---------- Resolving and applying ----------
   const KEY = "wedding-guests:settings";
-  let current = { theme: DEFAULT_THEME, colors: {}, accent: null };
+  let current = { theme: DEFAULT_THEME, colors: {}, accent: null, font: null };
 
   function clean(s) {
     const theme = THEMES[s?.theme] ? s.theme : DEFAULT_THEME;
     const colors = {};
     for (const k of STATE_KEYS) if (hex(s?.colors?.[k])) colors[k] = hex(s.colors[k]);
-    return { theme, colors, accent: hex(s?.accent) || null };
+    return { theme, colors, accent: hex(s?.accent) || null, font: FONTS[s?.font] ? s.font : null };
   }
   function resolve(s) {
     const st = clean(s), t = THEMES[st.theme];
-    return { id: st.theme, theme: t, colors: { ...t.colors, ...st.colors }, accent: st.accent || t.accent };
+    return { id: st.theme, theme: t, colors: { ...t.colors, ...st.colors }, accent: st.accent || t.accent, font: st.font || t.font };
   }
   const isCustom = (s) => {
     const st = clean(s);
-    return Object.keys(st.colors).some((k) => st.colors[k] !== THEMES[st.theme].colors[k]) || (st.accent && st.accent !== THEMES[st.theme].accent);
+    return Object.keys(st.colors).some((k) => st.colors[k] !== THEMES[st.theme].colors[k]) || (st.accent && st.accent !== THEMES[st.theme].accent) || (st.font && st.font !== THEMES[st.theme].font);
   };
 
   const dark = () => !!window.matchMedia?.("(prefers-color-scheme: dark)").matches;
@@ -338,7 +351,7 @@ window.Theme = (() => {
   function variables(s, scheme) {
     const r = resolve(s), sf = surfaces(r, scheme), v = {};
     v["--bg"] = sf.base; v["--surface"] = sf.surface; v["--surface-2"] = sf.surface2; v["--border"] = sf.border;
-    v["--night"] = r.theme.header; v["--display"] = r.theme.font;
+    v["--night"] = r.theme.header; v["--display"] = FONTS[r.font].css;
     v["--disco"] = (r.theme.stripe || ((c) => `linear-gradient(90deg, ${c.todo}, ${c.process}, ${c.done})`))(r.colors);
     for (const k of STATE_KEYS) {
       const soft = mix(r.colors[k], sf.surface, 0.78);
@@ -394,5 +407,5 @@ window.Theme = (() => {
   apply(loadLocal());
   window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener?.("change", () => apply(current));
 
-  return { THEMES, THEME_ORDER, STATES, STATE_KEYS, apply, clean, resolve, isCustom, backgroundCss, lookAlikes, loadLocal, saveLocal, get: () => current, hex };
+  return { THEMES, THEME_ORDER, FONTS, FONT_ORDER, STATES, STATE_KEYS, apply, clean, resolve, isCustom, backgroundCss, lookAlikes, loadLocal, saveLocal, get: () => current, hex };
 })();

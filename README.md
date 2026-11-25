@@ -35,7 +35,7 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 
 The **⚙** button opens Settings. **Design** lets you pick a theme (Floral, Formal, Country, Beach, Disco), which sets the
 background pattern, header, heading font, accent and four status colors: **Color 1 / Done**, **Color 2 / In process**, **Color 3 / To do** and **Color 4 / Unknown**.
-Each color has a color picker and a hex box, and the soft background and readable text color for status pills are worked out
+The **Font** drop down sets the title and heading font (Righteous, Montserrat, Poppins, Roboto, Lato, Playfair Display, Merriweather); each theme starts with the one that suits it. Each color has a color picker and a hex box, and the soft background and readable text color for status pills are worked out
 from the one color you pick, so any color stays legible (including in dark mode). Run `supabase/04_settings.sql` once so the
 look is shared with everyone; until then it is saved on each device.
 

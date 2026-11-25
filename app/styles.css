@@ -457,3 +457,12 @@ table.guests.preview { pointer-events: none; }
   .settings-body { padding: 4px 12px 18px; }
   .theme-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* The Happy Couple */
+.partners { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 8px; max-width: 640px; }
+.partner { display: grid; gap: 10px; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border); border-left: 5px solid var(--pink); border-radius: 10px; align-content: start; }
+.partner:nth-child(2) { border-left-color: var(--lime); }
+.partner h4 { margin: 0; font: 15px var(--display); color: var(--accent); }
+.partner .field input, .partner .field select { background: var(--surface); }
+.couple-line { margin: 14px 0 0 !important; font-size: 17px; min-height: 1.4em; }
+@media (max-width: 760px) { .partners { grid-template-columns: 1fr; } }

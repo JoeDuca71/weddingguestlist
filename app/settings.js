@@ -1,28 +1,61 @@
 "use strict";
-// The Settings page. For now it has one section, Design (theme + status colors); more sections plug into SECTIONS.
+// The Settings page. Sections: The Happy Couple (who's getting married) and Design (theme + status colors).
+// More sections plug into SECTIONS.
 // Uses helpers from app.js ($, esc, slug, toast, api, setTab) and the theme engine in theme.js.
 
 window.Settings = (() => {
-  const SECTIONS = [{ key: "design", label: "🎨 Design" }];
-  let section = "design";
+  const SECTIONS = [
+    { key: "couple", label: "💍 The Happy Couple" },
+    { key: "design", label: "🎨 Design" },
+  ];
+  let section = "couple";
   let saveTimer;
   let remoteOk = true;
   let warned = false;
 
+  // ---------- The Happy Couple ----------
+  // Two people, each with a first name and a role, so a couple can be two brides, two grooms, or one of each.
+  const ROLES = ["Bride", "Groom"];
+  const COUPLE_KEY = "wedding-guests:couple";
+  const cleanCouple = (c) =>
+    [0, 1].map((i) => ({
+      name: String(c?.[i]?.name ?? "").slice(0, 60),
+      role: ROLES.includes(c?.[i]?.role) ? c[i].role : "",
+    }));
+  const loadCoupleLocal = () => {
+    try {
+      return cleanCouple(JSON.parse(localStorage.getItem(COUPLE_KEY)));
+    } catch {
+      return cleanCouple(null);
+    }
+  };
+  let couple = loadCoupleLocal();
+  const saveCoupleLocal = () => {
+    try {
+      localStorage.setItem(COUPLE_KEY, JSON.stringify(couple));
+    } catch {}
+  };
+  // "Joe & Dylan", "Joe", or "" depending on what's filled in.
+  const coupleNames = () => couple.map((p) => p.name.trim()).filter(Boolean).join(" & ");
+
   // ---------- Saving ----------
   // The look is applied and kept on this device at once; it is also saved to the database so every
   // person using this guest list (and every device) sees the same thing.
-  function changed(next) {
-    Theme.apply(next);
+  function persist() {
     Theme.saveLocal(Theme.get());
+    saveCoupleLocal();
     setStatus("Saving…");
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveRemote, 500);
   }
+  function changed(next) {
+    Theme.apply(next);
+    persist();
+  }
   async function saveRemote() {
     if (!remoteOk) return setStatus("Saved on this device only");
     try {
-      await api.saveSettings(Theme.get());
+      await api.saveSettings({ ...Theme.get(), couple });
       setStatus("Saved");
     } catch {
       remoteOk = false;
@@ -43,6 +76,10 @@ window.Settings = (() => {
       if (data) {
         Theme.apply(data);
         Theme.saveLocal(Theme.get());
+        if (data.couple) {
+          couple = cleanCouple(data.couple);
+          saveCoupleLocal();
+        }
       }
     } catch {
       remoteOk = false;
@@ -97,6 +134,24 @@ window.Settings = (() => {
     <span class="vbtn on">Selected</span><a href="#" onclick="return false">A link</a></div>`;
   }
 
+  function coupleHtml() {
+    const card = (i) => `<div class="partner">
+      <h4>Partner ${i + 1}</h4>
+      <label class="field"><span>First name</span><input type="text" data-cname="${i}" value="${esc(couple[i].name)}" maxlength="60" autocomplete="off"></label>
+      <label class="field"><span>Role</span><select data-crole="${i}">${optionsHtml(ROLES, couple[i].role, { blank: true })}</select></label>
+    </div>`;
+    return `
+      <h3>The Happy Couple</h3>
+      <p class="muted">Who is getting married. Two brides, two grooms, or one of each: pick a role for each person.</p>
+      <div class="partners">${card(0)}${card(1)}</div>
+      <p class="couple-line" id="couple-line">${coupleLine()}</p>`;
+  }
+  function coupleLine() {
+    const n = coupleNames();
+    const roles = couple.every((p) => p.name.trim() && p.role) ? couple.map((p) => p.role).join(" & ") : "";
+    return n ? `<strong>${esc(n)}</strong>${roles ? ` <span class="muted">· ${esc(roles)}</span>` : ""}` : "";
+  }
+
   function designHtml() {
     const s = Theme.get(), r = Theme.resolve(s), t = Theme.THEMES[s.theme];
     return `
@@ -125,7 +180,7 @@ window.Settings = (() => {
         <button type="button" class="btn" data-settings-back>← Back to guest list</button></div>
       <div class="settings">
         <nav class="settings-nav" aria-label="Settings sections">${SECTIONS.map((x) => `<button type="button" class="${x.key === section ? "on" : ""}" data-section="${x.key}">${x.label}</button>`).join("")}</nav>
-        <section class="settings-body">${section === "design" ? designHtml() : ""}</section>
+        <section class="settings-body">${section === "couple" ? coupleHtml() : section === "design" ? designHtml() : ""}</section>
       </div>`;
   }
 
@@ -177,7 +232,11 @@ window.Settings = (() => {
     });
     box.addEventListener("input", (e) => {
       const el = e.target;
-      if (el.dataset.scolor) {
+      if (el.dataset.cname !== undefined) {
+        couple[Number(el.dataset.cname)].name = el.value;
+        document.getElementById("couple-line").innerHTML = coupleLine();
+        persist();
+      } else if (el.dataset.scolor) {
         const key = el.dataset.scolor;
         changed(withColor(key, el.value));
         box.querySelector(`[data-shex="${key}"]`).value = el.value.toLowerCase();
@@ -197,6 +256,12 @@ window.Settings = (() => {
     // Leaving the hex box: accept a short code like #fa0, otherwise put the real value back.
     box.addEventListener("change", (e) => {
       const el = e.target;
+      if (el.dataset.crole !== undefined) {
+        couple[Number(el.dataset.crole)].role = ROLES.includes(el.value) ? el.value : "";
+        document.getElementById("couple-line").innerHTML = coupleLine();
+        persist();
+        return;
+      }
       if (!el.dataset.shex) return;
       const key = el.dataset.shex, h = Theme.hex(el.value);
       if (h) {
@@ -210,5 +275,5 @@ window.Settings = (() => {
     });
   }
 
-  return { render, wire, loadRemote };
+  return { render, wire, loadRemote, couple: () => couple.map((p) => ({ ...p })), coupleNames };
 })();

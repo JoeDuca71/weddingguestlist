@@ -114,7 +114,7 @@ function buildModel() {
     fil("family", "invite_status"),
     fil("family", "hotel_status"),
     pOn("rd_invited") && { key: "rd_inv", label: lab("person", "rd_invited"), person: true, options: ["Yes", "No"], get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
-    ...events.map((ev) => fil("person", ev.rsvpKey, { onlyInvited: ev.rsvpKey === "rd_status" && pOn("rd_invited") })),
+    ...events.map((ev) => fil("person", ev.rsvpKey)),
     fil("person", "table_status"),
     fil("person", "role"),
     fil("family", "state", { blank: true }),
@@ -202,15 +202,13 @@ function toast(msg, isError) {
 // The family value of a person field: everyone's shared value, or "Multiple".
 // Rehearsal dinner only counts people invited to it.
 function rollup(people, key) {
-  const pool = onlyInvitedToRd(key) ? people.filter((p) => Number(p.rd_invited) > 0) : people;
+  const pool = people;
   if (!pool.length) return "";
   const vals = new Set(pool.map((p) => p[key] ?? ""));
   return vals.size === 1 ? [...vals][0] : MULTI;
 }
 // Which people a family-level change to `key` applies to.
-const targetsFor = (people, key) => (onlyInvitedToRd(key) ? people.filter((p) => Number(p.rd_invited) > 0) : people);
-// Rehearsal RSVP only counts people invited to the rehearsal dinner (when that count is switched on).
-const onlyInvitedToRd = (key) => key === "rd_status" && isOn("person", "rd_invited");
+const targetsFor = (people) => people;
 
 // Everyone has answered Yes or No → invite is Done (when the invite status field is in use).
 const allAnswered = (people) => people.length > 0 && people.every((p) => p.rsvp === "Yes" || p.rsvp === "No");
@@ -465,7 +463,6 @@ function personMatches(p) {
   for (const def of FILTERS) {
     const sel = state.filters[def.key];
     if (!def.person || !sel?.length) continue;
-    if (def.onlyInvited && !(Number(p.rd_invited) > 0)) return false;
     if (!sel.includes(fv(def.get ? def.get(p) : p[def.key]))) return false;
   }
   return true;
@@ -627,8 +624,7 @@ function renderStats() {
   // One card per related event that is switched on.
   for (const ev of Fields.events()) {
     if (!ev.enabled) continue;
-    const rd = ev.rsvpKey === "rd_status" && isOn("person", "rd_invited");
-    answerCard(`s-ev s-${ev.id}`, ev.name, ev.rsvpKey, rd ? "rd_invited" : "invited", rd ? (p) => Number(p.rd_invited) > 0 : null);
+    answerCard(`s-ev s-${ev.id}`, ev.name, ev.rsvpKey, "invited");
   }
   $("#stats").innerHTML = tiles.join("");
 }
@@ -740,8 +736,6 @@ function familyFieldHtml(key) {
     const pf = PF[key];
     const val = rollup(draft.people, key);
     const label = `${ROLLUP_LABEL[key]} <i class="badge" title="Rolls up from each person. Changing it here sets everyone.">everyone</i>`;
-    if (onlyInvitedToRd(key) && !draft.people.some((p) => Number(p.rd_invited) > 0))
-      return `<label class="field"><span>${label}</span><input disabled value="Nobody invited" data-roll="${key}"></label>`;
     const ctl =
       pf.options.length && pf.cfgType !== "multiselect"
         ? `<select data-roll="${key}">${optionsHtml(pf.options, val, { multi: true })}</select>`
@@ -791,8 +785,6 @@ function renderDialog() {
 
 // Keep the family-level rollup controls in step with the people.
 function syncDialog() {
-  const rdEl = onlyInvitedToRd("rd_status") && $('[data-roll="rd_status"]');
-  if (rdEl && rdEl.disabled === draft.people.some((p) => Number(p.rd_invited) > 0)) renderDialog();
   for (const key of ROLLUPS) {
     const el = $(`[data-roll="${key}"]`);
     if (!el || el.disabled) continue;
@@ -1356,7 +1348,7 @@ function wire() {
         : { ...PERSON_DEFAULTS, last_name: first.last_name || "" };
       ROLLUPS.forEach((k) => {
         const v = rollup(draft.people, k);
-        if (v && v !== MULTI && !onlyInvitedToRd(k)) p[k] = v;
+        if (v && v !== MULTI) p[k] = v;
       });
       draft.people.push(p);
       renderDialog();

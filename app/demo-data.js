@@ -28,3 +28,10 @@ window.DEMO_DATA = [
   { family_name: "Uncle Vince Duca", affiliation: "Joe Family", live_in_town: "No", hotel_status: "Maybe Host Hotel", city: "Tampa", state: "FL",
     people: [{ first_name: "Vince", last_name: "Duca", invited: 2 }] },
 ];
+
+// Sample B-list for demo mode.
+window.DEMO_BLIST = [
+  { family_name: "The Dana Wright Family", people: "Dana Wright\nChris Wright", affiliation: "Joe Friends", would_replace: "a Joe friend who declined", city: "Indianapolis", state: "IN", notes: "Work friends, would love to invite" },
+  { family_name: "Marcus Bell", people: "Marcus Bell\nGuest of Marcus Bell", affiliation: "Dylan Friends", would_replace: "a Dylan friend who declined", city: "Philadelphia", state: "PA" },
+  { family_name: "Aunt Carol & Uncle Ted", people: "Carol Duca\nTed Duca", affiliation: "Joe Family", city: "Tampa", state: "FL", notes: "Only if we have room" },
+];

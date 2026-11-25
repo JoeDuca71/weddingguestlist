@@ -37,6 +37,7 @@
       <div class="brand">🪩 <span>Guest List</span></div>
       <div class="top-actions">
         <button class="btn primary" id="add-family">+ Family</button>
+        <button class="btn primary" id="add-blist" hidden>+ B-list</button>
         <details class="menu">
           <summary class="btn" aria-label="More">☰</summary>
           <div class="menu-pop">
@@ -47,7 +48,14 @@
       </div>
     </header>
 
-    <main>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Lists">
+      <button type="button" class="tab on" role="tab" data-tab="main">Guest list</button>
+      <button type="button" class="tab" role="tab" data-tab="blist" title="People we haven't contacted and may invite if we need more RSVPs">B-list <span class="tabcount" id="blist-count"></span></button>
+    </nav>
+
+    <main id="blist-view" hidden></main>
+
+    <main id="main-view">
       <section class="stats" id="stats"></section>
 
       <div class="navrow">
@@ -72,6 +80,9 @@
 
   <dialog id="family-dialog" class="sheet wide">
     <form method="dialog" id="family-form"></form>
+  </dialog>
+  <dialog id="blist-dialog" class="sheet">
+    <form method="dialog" id="blist-form"></form>
   </dialog>
   <div id="toast" class="toast" role="status"></div>
 

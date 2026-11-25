@@ -475,20 +475,22 @@ table.guests.preview { pointer-events: none; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .fsec { margin: 18px 0 8px; }
 .fsec-head { margin-bottom: 6px; }
-.sec-name { font: inherit; font-weight: 700; font-size: 15px; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 4px 8px; margin-left: -8px; min-width: 240px; color: var(--text); }
+.sec-name { font: inherit; font-weight: 700; font-size: 15px; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 4px 8px; margin-left: -8px; color: var(--text); }
+.sec-word { font-weight: 700; font-size: 15px; margin-left: -4px; }
+.fsec-head { display: flex; align-items: baseline; }
 .sec-name:hover, .sec-name:focus { border-color: var(--border); background: var(--surface); }
 .rolled { font-size: 13px; margin: 4px 0 0; }
 .fcard { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: 6px 0; }
 .fcard.off { opacity: .65; }
 .fcard > summary { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; list-style: none; }
 .fcard > summary::-webkit-details-marker { display: none; }
-.fcard > summary::before { content: "▸"; color: var(--muted); font-size: 12px; }
+.fcard > summary::before { content: "▸"; color: var(--muted); font-size: 12px; width: 14px; flex: none; }
 .fcard[open] > summary::before { content: "▾"; }
 .fcard .ftype { margin-left: auto; font-size: 13px; }
-.fbody { padding: 4px 14px 14px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.fbody { padding: 4px 14px 14px 36px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
 .fbody .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
 .vals h5 { margin: 6px 0; font-size: 13px; }
-.val-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 190px) minmax(80px, auto) auto; gap: 8px; align-items: center; margin: 4px 0; }
+.val-row { display: grid; grid-template-columns: minmax(120px, 1fr) 190px 150px 70px; gap: 8px; align-items: center; margin: 4px 0; }
 .val-row input, .val-row select, .inline select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
 .val-row input[readonly] { opacity: .75; }
 .val-row .pill { justify-self: start; }
@@ -501,3 +503,7 @@ table.guests.preview { pointer-events: none; }
 .evfields { display: grid; gap: 6px; }
 .evfields .fcard { background: var(--surface-2); }
 .evactions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+.ex-label { font-size: 12px; margin-right: 2px; }
+.couple-line { font-weight: 600; }
+.fgroup .form-grid + .form-grid { margin-top: 12px; }

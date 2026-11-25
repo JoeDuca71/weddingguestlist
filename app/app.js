@@ -25,6 +25,7 @@ const hasVals = (f) => f.cfgType === "dropdown" || f.cfgType === "checkbox" || f
 const isOn = (scope, key) => !!Fields.get(scope, key)?.enabled;
 
 function buildModel() {
+  const events = Fields.events().filter((e) => e.enabled);
   const pAll = Fields.list("person").map(toUi), fAll = Fields.list("family").map(toUi);
   PF = Object.fromEntries(pAll.map((f) => [f.key, f]));
   FF = Object.fromEntries(fAll.map((f) => [f.key, f]));
@@ -46,6 +47,8 @@ function buildModel() {
     .map((s) => ({
       title: s.name,
       side: s.side,
+      // Related Events: one row of fields per event, so every event starts on a new line.
+      rows: s.id === "f_events" ? events.map((ev) => [ev.rsvp, ...ev.fields].filter((f) => f?.enabled && f.rollup).map((f) => f.key)).filter((r) => r.length) : null,
       keys: [
         ...Fields.list("family").filter((f) => f.enabled && f.section === s.id).map((f) => f.key),
         ...rollFields.filter((f) => f.rollSection === s.id).map((f) => f.key),
@@ -60,7 +63,6 @@ function buildModel() {
     for (const [k, v] of Object.entries(want)) if (isOn("family", k) && Fields.optionValues("family", k).includes(v)) IN_TOWN[k] = v;
   }
 
-  const events = Fields.events().filter((e) => e.enabled);
   const fOn = (k) => isOn("family", k), pOn = (k) => isOn("person", k);
   const lab = (scope, k) => Fields.get(scope, k).label;
   // Columns the main list can show. Everything is per family.
@@ -768,7 +770,7 @@ function renderDialog() {
     <div class="sheet-body">
       <div class="fam-groups">
         ${["L", "R"]
-          .map((side) => `<div class="fam-col">${FAMILY_GROUPS.filter((g) => g.side === side).map((g) => `<fieldset class="fgroup"><legend>${esc(g.title)}</legend><div class="form-grid">${g.keys.map(familyFieldHtml).join("")}</div></fieldset>`).join("")}</div>`)
+          .map((side) => `<div class="fam-col">${FAMILY_GROUPS.filter((g) => g.side === side).map((g) => `<fieldset class="fgroup"><legend>${esc(g.title)}</legend>${(g.rows || [g.keys]).map((row) => `<div class="form-grid">${row.map(familyFieldHtml).join("")}</div>`).join("")}</fieldset>`).join("")}</div>`)
           .join("")}
       </div>
       <h3 class="people-title">People <span class="muted">(${draft.people.length})</span></h3>

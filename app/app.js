@@ -153,6 +153,24 @@ const BULK_FIELDS = [
   ...["city", "state", "gift", "notes"].map((k) => ({ ...FF[k], type: "text", scope: "family" })),
 ];
 
+// The B-list: people we haven't contacted yet and may or may not ever invite.
+// Promoting one moves them onto the main list as a new family.
+const BLIST_FIELDS = [
+  { key: "family_name", label: "Name", type: "text", hint: "How we'd address them, e.g. The Brad Johnson Family" },
+  { key: "people", label: "People (one per line)", type: "textarea", hint: "e.g. Brad Johnson. Leave blank for one person named above." },
+  { key: "affiliation", label: "Affiliation", type: "select", options: OPT.affiliation, blank: true },
+  { key: "would_replace", label: "Would make room for", type: "text", hint: "e.g. a Dylan friend who declined" },
+  { key: "phone", label: "Phone", type: "tel" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "city", label: "City", type: "text" },
+  { key: "state", label: "State", type: "text" },
+  { key: "notes", label: "Notes", type: "textarea" },
+];
+const BLIST_DEFAULTS = { family_name: "", people: "", affiliation: null, would_replace: "", phone: "", email: "", city: "", state: "", notes: "" };
+const blistLines = (b) => String(b.people || "").split("\n").map((x) => x.trim()).filter(Boolean);
+const blistCount = (b) => Math.max(1, blistLines(b).length);
+const byPriority = (a, b) => a.priority - b.priority || a.id - b.id;
+
 // ---------- Small helpers ----------
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -245,7 +263,15 @@ function makeSupabaseApi() {
     upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map(strip)).select()) : []),
     updatePeople: async (ids, patch) => (ids.length ? check(await sb.from("gl_people").update(patch).in("id", ids).select()) : []),
     deletePeople: async (ids) => (ids.length ? check(await sb.from("gl_people").delete().in("id", ids)) : null),
+    // The B-list table is separate so the rest of the app still works before its SQL has been run.
+    loadBlist: async () => check(await sb.from("gl_blist").select("*").order("priority").order("id")),
+    insertBlist: async (row) => check(await sb.from("gl_blist").insert(strip(row)).select().single()),
+    upsertBlist: async (rows) => (rows.length ? check(await sb.from("gl_blist").upsert(rows.map(strip)).select()) : []),
+    deleteBlist: async (id) => check(await sb.from("gl_blist").delete().eq("id", id)),
     subscribe(onChange) {
+      sb.channel("blist")
+        .on("postgres_changes", { event: "*", schema: "public", table: "gl_blist" }, (p) => onChange("blist", p))
+        .subscribe();
       sb.channel("guests")
         .on("postgres_changes", { event: "*", schema: "public", table: "gl_families" }, (p) => onChange("families", p))
         .on("postgres_changes", { event: "*", schema: "public", table: "gl_people" }, (p) => onChange("people", p))
@@ -264,6 +290,9 @@ function makeDemoApi() {
       db.families.push(f);
       people.forEach((p, i) => db.people.push({ ...PERSON_DEFAULTS, ...p, id: db.nextId++, family_id: f.id, sort_order: i }));
     }
+  }
+  if (!db.blist) {
+    db.blist = (window.DEMO_BLIST || []).map((b, i) => ({ ...BLIST_DEFAULTS, ...b, priority: i + 1, id: db.nextId++ }));
   }
   const save = () => store("demo-db", db);
   const patchRows = (table, ids, patch) => {
@@ -301,6 +330,22 @@ function makeDemoApi() {
       db.people = db.people.filter((p) => !ids.includes(p.id));
       save();
     },
+    loadBlist: async () => structuredClone(db.blist),
+    insertBlist: async (row) => {
+      const r = { ...row, id: db.nextId++ };
+      db.blist.push(r);
+      save();
+      return { ...r };
+    },
+    upsertBlist: async (rows) => {
+      rows.forEach((r) => Object.assign(db.blist.find((b) => b.id === r.id), r));
+      save();
+      return structuredClone(rows);
+    },
+    deleteBlist: async (id) => {
+      db.blist = db.blist.filter((b) => b.id !== id);
+      save();
+    },
     subscribe() {},
   };
 }
@@ -318,6 +363,10 @@ const state = {
   bulk: false,
   selected: new Set(),
   bulkField: "hotel_status",
+  blist: [],
+  blistError: null,
+  blistFilter: "",
+  tab: store("tab") === "blist" ? "blist" : "main",
 };
 
 function upsertLocal(table, row) {
@@ -408,6 +457,8 @@ const visiblePeople = (fams) => fams.flatMap((f) => f.people.filter(personMatche
 // ---------- Rendering ----------
 
 function render() {
+  renderTabs();
+  if (state.tab === "blist") return renderBlist();
   const fams = visibleFamilies();
   renderStats();
   renderFilters();
@@ -802,6 +853,218 @@ async function applyBulk() {
   }
 }
 
+// ---------- B-list ----------
+
+function renderTabs() {
+  const onB = state.tab === "blist";
+  $$("#tabs .tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === state.tab));
+  $("#main-view").hidden = onB;
+  $("#blist-view").hidden = !onB;
+  $("#add-family").hidden = onB;
+  $("#add-blist").hidden = !onB;
+  $("#bulkbar").hidden = onB || !state.bulk;
+  $("#blist-count").textContent = state.blistError ? "" : `(${state.blist.reduce((n, b) => n + blistCount(b), 0)})`;
+}
+
+function setTab(tab) {
+  state.tab = tab;
+  store("tab", tab);
+  render();
+}
+
+function renderBlist() {
+  const box = $("#blist-view");
+  if (state.blistError) {
+    box.innerHTML = `<div class="empty"><strong>The B-list isn't set up yet.</strong><br>
+      In Supabase, open <strong>SQL Editor &gt; New query</strong>, paste all of <code>supabase/03_blist.sql</code>, click <strong>Run</strong>, then reload this page.
+      <br><span class="muted">${esc(state.blistError)}</span></div>`;
+    return;
+  }
+  const all = [...state.blist].sort(byPriority);
+  const shown = all.filter((b) => !state.blistFilter || (b.affiliation || "") === (state.blistFilter === BLANK ? "" : state.blistFilter));
+  const heads = (arr) => arr.reduce((n, b) => n + blistCount(b), 0);
+
+  // Where the gaps are: guests who said No, next to who's waiting on the B-list, by affiliation.
+  const declined = {};
+  for (const f of familyViews())
+    for (const p of f.people) if (p.rsvp === "No") declined[f.affiliation || ""] = (declined[f.affiliation || ""] || 0) + (Number(p.invited) || 0);
+  const affs = [...OPT.affiliation, ""];
+  const gaps = affs
+    .map((a) => ({ a, no: declined[a] || 0, bl: heads(all.filter((b) => (b.affiliation || "") === a)) }))
+    .filter((r) => r.no || r.bl);
+  const totalNo = Object.values(declined).reduce((n, v) => n + v, 0);
+
+  const filterBtns = [["", "All"], ...OPT.affiliation.map((a) => [a, a])]
+    .map(([v, l]) => `<button type="button" class="vbtn ${state.blistFilter === v ? "on" : ""}" data-blfilter="${esc(v)}">${esc(l)}</button>`)
+    .join("");
+
+  const rows = shown
+    .map((b) => {
+      const i = all.indexOf(b);
+      const lines = blistLines(b);
+      return `<tr data-bl="${b.id}">
+        <td class="c-rank num" data-label="#">${i + 1}</td>
+        <td class="c-family_name" data-label="Name"><strong>${esc(b.family_name)}</strong></td>
+        <td class="c-people" data-label="People">${lines.length ? esc(lines.join(", ")) : `<span class="muted">1 person</span>`}</td>
+        <td data-label="Affiliation">${b.affiliation ? esc(b.affiliation) : `<span class="muted">—</span>`}</td>
+        <td data-label="Would make room for">${b.would_replace ? esc(b.would_replace) : `<span class="muted">—</span>`}</td>
+        <td data-label="Where">${esc([b.city, b.state].filter(Boolean).join(", ")) || `<span class="muted">—</span>`}</td>
+        <td class="c-notes" data-label="Notes">${b.notes ? esc(b.notes) : `<span class="muted">—</span>`}</td>
+        <td class="c-actions">
+          <button type="button" class="iconbtn" data-blmove="${b.id}" data-dir="-1" title="Move up (invite sooner)" aria-label="Move up" ${i === 0 ? "disabled" : ""}>▲</button>
+          <button type="button" class="iconbtn" data-blmove="${b.id}" data-dir="1" title="Move down (invite later)" aria-label="Move down" ${i === all.length - 1 ? "disabled" : ""}>▼</button>
+          <button type="button" class="btn primary small" data-blpromote="${b.id}">Promote ➜</button>
+        </td>
+      </tr>`;
+    })
+    .join("");
+
+  box.innerHTML = `
+    <section class="blist-intro">
+      <div>
+        <h2>B-list</h2>
+        <p class="muted">People we haven't contacted yet and may or may not ever invite. If we need more RSVPs, <strong>Promote</strong> moves someone to the main guest list.
+        Higher up = invite sooner.</p>
+      </div>
+      <div class="gaps">
+        <div class="gaps-title">Declined so far: <strong>${totalNo}</strong> · On B-list: <strong>${heads(all)}</strong></div>
+        ${
+          gaps.length
+            ? `<table class="gaptable"><thead><tr><th></th><th>Declined</th><th>On B-list</th></tr></thead><tbody>${gaps
+                .map((r) => `<tr><td>${esc(r.a || "No affiliation")}</td><td class="num">${r.no}</td><td class="num">${r.bl}</td></tr>`)
+                .join("")}</tbody></table>`
+            : ""
+        }
+      </div>
+    </section>
+    <div class="navrow"><div class="views" role="group" aria-label="Filter by affiliation">${filterBtns}</div>
+      <span class="count muted">${shown.length === all.length ? `${all.length} on the list` : `${shown.length} of ${all.length}`}</span></div>
+    ${
+      all.length
+        ? shown.length
+          ? `<div class="tablewrap"><table class="guests blist"><thead><tr><th class="num">#</th><th>Name</th><th>People</th><th>Affiliation</th><th>Would make room for</th><th>Where</th><th>Notes</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+          : `<div class="empty">Nobody on the B-list for that affiliation.</div>`
+        : `<div class="empty">The B-list is empty. Click <strong>+ B-list</strong> to add someone you might invite later.</div>`
+    }`;
+}
+
+let bdraft = null;
+
+function openBlist(id) {
+  const b = id ? state.blist.find((x) => x.id === id) : null;
+  if (id && !b) return;
+  bdraft = b ? { id, ...Object.fromEntries(Object.keys(BLIST_DEFAULTS).map((k) => [k, b[k] ?? BLIST_DEFAULTS[k]])) } : { id: null, ...BLIST_DEFAULTS };
+  $("#blist-form").innerHTML = `
+    <div class="sheet-head"><h2>${id ? "Edit B-list entry" : "Add to B-list"}</h2><button type="button" class="x" data-bclose aria-label="Close">✕</button></div>
+    <div class="sheet-body"><div class="form-grid blform">
+      ${BLIST_FIELDS.map(
+        (f) => `<label class="field bf-${f.key}"><span>${esc(f.label)}</span>${inputHtml(f, bdraft[f.key], `data-bf="${f.key}"`)}${f.hint ? `<small class="hint">${esc(f.hint)}</small>` : ""}</label>`
+      ).join("")}
+    </div></div>
+    <div class="sheet-foot">
+      ${id ? `<button type="button" class="btn danger" id="delete-blist">Remove</button>` : "<span></span>"}
+      <div class="foot-right">
+        ${id ? `<button type="button" class="btn" id="promote-blist">Promote ➜</button>` : ""}
+        <button type="button" class="btn" data-bclose>Cancel</button><button type="submit" class="btn primary">Save</button>
+      </div>
+    </div>`;
+  $("#blist-dialog").showModal();
+  if (!id) $('[data-bf="family_name"]').focus();
+}
+
+async function saveBlist() {
+  const row = { ...bdraft };
+  row.family_name = String(row.family_name || "").trim();
+  if (!row.family_name) {
+    const first = String(row.people || "").split("\n").map((x) => x.trim()).find(Boolean);
+    if (!first) return toast("Give them a name", true);
+    row.family_name = first;
+  }
+  try {
+    if (row.id) (await api.upsertBlist([{ ...state.blist.find((b) => b.id === row.id), ...row }])).forEach((r) => upsertLocal("blist", r));
+    else upsertLocal("blist", await api.insertBlist({ ...row, id: undefined, priority: Math.max(0, ...state.blist.map((b) => b.priority)) + 1 }));
+    $("#blist-dialog").close();
+    toast("Saved");
+    render();
+  } catch (e) {
+    toast("Couldn't save: " + e.message, true);
+  }
+}
+
+async function deleteBlist() {
+  if (!confirm(`Remove ${bdraft.family_name || "this entry"} from the B-list?`)) return;
+  try {
+    await api.deleteBlist(bdraft.id);
+    removeLocal("blist", bdraft.id);
+    $("#blist-dialog").close();
+    toast("Removed");
+    render();
+  } catch (e) {
+    toast("Couldn't remove: " + e.message, true);
+  }
+}
+
+// Swap with the neighbour and renumber 1..n so the order is always clean.
+async function moveBlist(id, dir) {
+  const all = [...state.blist].sort(byPriority);
+  const i = all.findIndex((b) => b.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= all.length) return;
+  [all[i], all[j]] = [all[j], all[i]];
+  const changed = all.map((b, k) => ({ ...b, priority: k + 1 })).filter((b) => state.blist.find((x) => x.id === b.id).priority !== b.priority);
+  try {
+    (await api.upsertBlist(changed)).forEach((r) => upsertLocal("blist", r));
+    render();
+  } catch (e) {
+    toast("Couldn't move: " + e.message, true);
+  }
+}
+
+// "Brad Johnson" -> first "Brad", last "Johnson". "Guest of Jane Doe" keeps the plus-one convention.
+function splitName(line) {
+  const guest = line.match(/^guest of\s+(.+)$/i);
+  if (guest) return { first_name: "Guest of", last_name: guest[1].trim() };
+  const parts = line.trim().split(/\s+/);
+  return parts.length === 1 ? { first_name: parts[0], last_name: "" } : { first_name: parts.slice(0, -1).join(" "), last_name: parts.at(-1) };
+}
+
+// Move a B-list entry onto the main list as a new family, then open it so you can fill in the rest.
+async function promoteBlist(id) {
+  const b = state.blist.find((x) => x.id === id);
+  if (!b) return;
+  if (!confirm(`Move ${b.family_name} to the main guest list?\n\nThey'll be added as a new family (not contacted yet) and removed from the B-list.`)) return;
+  try {
+    const fam = await api.insertFamily({
+      ...FAMILY_DEFAULTS,
+      family_name: b.family_name,
+      affiliation: b.affiliation || null,
+      city: b.city || "",
+      state: b.state || "",
+      notes: b.notes || "",
+    });
+    const names = blistLines(b);
+    const rows = (names.length ? names : [b.family_name]).map((line, i) => ({
+      ...PERSON_DEFAULTS,
+      ...splitName(line),
+      family_id: fam.id,
+      sort_order: i,
+      phone: i === 0 ? b.phone || "" : "",
+      email: i === 0 ? b.email || "" : "",
+    }));
+    upsertLocal("families", fam);
+    (await api.insertPeople(rows)).forEach((r) => upsertLocal("people", r));
+    await api.deleteBlist(id);
+    removeLocal("blist", id);
+    if ($("#blist-dialog").open) $("#blist-dialog").close();
+    state.search = "";
+    $("#search").value = "";
+    setTab("main");
+    toast(`${b.family_name} moved to the guest list`);
+    openFamily(fam.id);
+  } catch (e) {
+    toast("Couldn't promote: " + e.message, true);
+  }
+}
+
 // ---------- Export ----------
 // Exports exactly what's on screen: the filtered, sorted families with the
 // visible columns, plus a People sheet (one row per person, handy for name tags).
@@ -839,6 +1102,43 @@ function wire() {
     render();
   });
   $("#add-family").addEventListener("click", () => openFamily(null));
+  $("#add-blist").addEventListener("click", () => openBlist(null));
+  $("#tabs").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-tab]");
+    if (t) setTab(t.dataset.tab);
+  });
+  $("#blist-view").addEventListener("click", (e) => {
+    const t = e.target;
+    const f = t.closest("[data-blfilter]");
+    if (f) return (state.blistFilter = f.dataset.blfilter), renderBlist();
+    const mv = t.closest("[data-blmove]");
+    if (mv) return moveBlist(Number(mv.dataset.blmove), Number(mv.dataset.dir));
+    const pr = t.closest("[data-blpromote]");
+    if (pr) return promoteBlist(Number(pr.dataset.blpromote));
+    const row = t.closest("tr[data-bl]");
+    if (row) openBlist(Number(row.dataset.bl));
+  });
+  const bdlg = $("#blist-dialog");
+  const onBInput = (e) => {
+    const k = e.target.dataset.bf;
+    if (k) bdraft[k] = readInput(e.target);
+  };
+  bdlg.addEventListener("input", (e) => e.target.tagName !== "SELECT" && onBInput(e));
+  bdlg.addEventListener("change", (e) => e.target.tagName === "SELECT" && onBInput(e));
+  bdlg.addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.closest("[data-bclose]")) return bdlg.close();
+    if (t.closest("#delete-blist")) return deleteBlist();
+    if (t.closest("#promote-blist")) return promoteBlist(bdraft.id);
+  });
+  $("#blist-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveBlist();
+  });
+  bdlg.addEventListener("close", () => {
+    bdraft = null;
+    queueRender();
+  });
   $("#export").addEventListener("click", exportExcel);
   $("#sign-out").addEventListener("click", async () => {
     if (DEMO) return toast("Demo mode has no sign-in");
@@ -1031,6 +1331,11 @@ async function startApp(email) {
     state.people = data.people;
   } catch (e) {
     toast("Couldn't load guests: " + e.message, true);
+  }
+  try {
+    state.blist = await api.loadBlist();
+  } catch (e) {
+    state.blistError = e.message || String(e);
   }
   render();
   api.subscribe((table, p) => {

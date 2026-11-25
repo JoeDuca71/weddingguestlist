@@ -13,6 +13,9 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 - **Multi-edit**: select several families and set one field on all of them.
 - **Export** downloads exactly what's on screen: a Families sheet with your columns, and a People sheet
   (one row per person, good for name tags).
+- **B-list** tab: people we haven't contacted yet and may or may not ever invite. Reorder with the arrows
+  (higher = invite sooner), and see declined guests next to who's waiting, by affiliation. **Promote** moves
+  someone onto the main list as a new family (not contacted yet) and removes them from the B-list.
 - Changes show up live for both of you.
 
 ## How it's built
@@ -20,6 +23,12 @@ dtracey809@gmail.com can sign in (same allowlist as the Wedding To-Do app).
 - `app/` is the whole website: plain HTML, CSS and JavaScript, no build step. Same stack and theme as the to-do app.
 - `supabase/01_schema.sql` creates `gl_families`, `gl_people` and `gl_views` (saved column presets, for later)
   in the to-do app's Supabase project, reusing its allowlist and security rules.
+- `supabase/03_blist.sql` adds the `gl_blist` table for the B-list.
+
+## B-list setup
+
+Run `supabase/03_blist.sql` once in the Supabase SQL Editor. Until you do, the rest of the site works
+normally and the B-list tab tells you it needs setting up.
 
 ## Loading the guest list
 

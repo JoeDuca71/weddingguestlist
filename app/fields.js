@@ -43,7 +43,9 @@ window.Fields = (() => {
       fields: [
         F("family_name", "Family name", "text", "f_family", { allowed: ["text"], noDisable: true, hint: "How we address them, e.g. The Brad Johnson Family" }),
         F("affiliation", "Affiliation", "dropdown", "f_family", {
-          values: L([["Dylan Family"], ["Dylan Friends"], ["Joe Family"], ["Joe Friends"], ["Mutual"]]), nullable: true, default: null, allowed: ["dropdown"],
+          values: L(["{p1}", "{p2}"].flatMap((p) => ["Friend – Childhood", "Friend – School", "Friend – College", "Friend – Work", "Friend", "Family"].map((x) => [`${p} ${x}`])).concat([["Mutual Friend"]])),
+          nullable: true, default: null, allowed: ["dropdown"],
+          hint: "{p1} and {p2} are the first and second partner from The Happy Couple. Use them in any value.",
         }),
         F("invite_status", "Invite status", "dropdown", "f_invite", {
           values: L([["Not Contacted", "todo"], ["Need to Text for Address", "todo"], ["Texted for Address", "process"], ["Emailed", "process"], ["Postcard Sent", "process"], ["Texted for RSVP", "process"], ["Done", "done"]]),
@@ -99,6 +101,15 @@ window.Fields = (() => {
     },
   };
   const SCOPES = ["family", "person"];
+
+  // ---------- The couple's names ----------
+  // Values can use {p1} and {p2}, which stand for the two partners in Settings > The Happy Couple.
+  let couple = ["", ""];
+  try {
+    const c = JSON.parse(localStorage.getItem("wedding-guests:couple"));
+    if (Array.isArray(c)) couple = [0, 1].map((i) => String(c[i]?.name ?? "").trim());
+  } catch {}
+  const expand = (raw) => String(raw ?? "").replace(/\{p([12])\}/g, (_, n) => couple[n - 1] || `Person ${n}`);
 
   // ---------- Overrides (what the user changed) ----------
   const KEY = "wedding-guests:fields";
@@ -165,6 +176,7 @@ window.Fields = (() => {
           values = [values[0] || base[0], values[1] || base[1]];
         }
       }
+      values = values.map((x) => ({ v: expand(x.v), raw: x.v, color: x.color }));
       let def = ov.default !== undefined ? ov.default : d.default;
       const nullable = d.nullable || (hasValues(type) && type !== d.type && type !== "checkbox");
       if (hasValues(type) && type !== "multiselect") {
@@ -188,6 +200,13 @@ window.Fields = (() => {
     overrides = cleanOverrides(o);
     cache = null;
     if (!silent) listeners.forEach((fn) => fn());
+  }
+  function setCouple(names) {
+    const next = [0, 1].map((i) => String(names?.[i] ?? "").trim());
+    if (next.join("\u0001") === couple.join("\u0001")) return;
+    couple = next;
+    cache = null;
+    listeners.forEach((fn) => fn());
   }
   const getOverrides = () => JSON.parse(JSON.stringify(overrides));
 
@@ -220,6 +239,6 @@ window.Fields = (() => {
 
   return {
     COLORS, TYPES, DEFAULTS, SCOPES, hasValues, list, sections, get, optionValues, defaultOf, colorOf,
-    setOverrides, getOverrides, onChange, saveLocal, valueName,
+    setOverrides, getOverrides, setCouple, expand, onChange, saveLocal, valueName,
   };
 })();

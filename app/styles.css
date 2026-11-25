@@ -537,3 +537,14 @@ table.guests.preview { pointer-events: none; }
 .val-row.has-partner { grid-template-columns: 110px minmax(120px, 1fr) 190px minmax(150px, auto) 70px; }
 .sec-title { margin-left: -8px; }
 .sec-title > *, .sec-title .sec-name { margin-left: 0; padding-right: 8px; }
+
+/* Round 4: drag to reorder, family roll-up for added People fields */
+.drag { cursor: grab; color: var(--muted); user-select: none; padding: 0 4px; font-size: 16px; line-height: 1; }
+.drag:hover { color: var(--accent); }
+.dragging { opacity: .45; }
+.drop-before { box-shadow: 0 -3px 0 0 var(--accent); }
+.drop-after { box-shadow: 0 3px 0 0 var(--accent); }
+.fcard > summary { align-items: center; }
+.val-row { grid-template-columns: 18px minmax(120px, 1fr) 190px 150px 70px; }
+.val-row.has-partner { grid-template-columns: 18px 110px minmax(120px, 1fr) 190px minmax(150px, auto) 70px; }
+@media (max-width: 640px) { .val-row .drag { display: none; } .val-row, .val-row.has-partner { grid-template-columns: 1fr 1fr; } }

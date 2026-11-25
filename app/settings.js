@@ -220,6 +220,7 @@ window.Settings = (() => {
     const locked = fld.locked.includes(v.v);
     const [pn, rest] = fld.partner ? splitPartner(v.raw ?? v.v) : ["", v.raw ?? v.v];
     return `<div class="val-row ${fld.partner ? "has-partner" : ""}" data-vrow="${i}">
+      ${fld.type === "checkbox" ? `<span></span>` : `<span class="drag" draggable="true" data-vdrag title="Drag to reorder" aria-hidden="true">⠿</span>`}
       ${fld.partner ? `<select data-vpartner aria-label="Partner for value ${i + 1}" ${locked ? "disabled" : ""}>${partnerOptions(pn)}</select>` : ""}
       <input type="text" class="val-name" data-vname="${i}" data-orig="${esc(v.v)}" value="${esc(rest)}" maxlength="${MAX}" ${locked ? `readonly title="The app's automatic rules use this value, so it can't be renamed or removed"` : ""} aria-label="Value ${i + 1}">
       <select class="csel c-${v.color}" data-vcolor="${i}" aria-label="Color for ${esc(v.v)}">${colorOptions(v.color)}</select>
@@ -252,8 +253,12 @@ window.Settings = (() => {
     const rollSec = fld.rollup && !fld.event
       ? `<label class="inline">Shown on the family form under <select data-froll>${Fields.sections("family").map((s) => `<option value="${s.id}" ${s.id === fld.rollSection ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>`
       : "";
+    const customRoll = fld.custom && scope === "person"
+      ? `<label class="inline">Also show on the family form <select data-fcroll><option value="" ${fld.rollSection ? "" : "selected"}>Not on the family form</option>${Fields.sections("family").map((x) => `<option value="${x.id}" ${x.id === fld.rollSection ? "selected" : ""}>Under ${esc(x.name || "(no title)")}</option>`).join("")}</select></label><small class="hint">On the family form, one change sets everyone in the family. It shows "Multiple" when they differ.</small>`
+      : "";
     return `<details class="fcard ${fld.enabled ? "" : "off"}" data-fkey="${key}" ${open ? "open" : ""}>
       <summary>
+        ${secs.length ? `<span class="drag" draggable="true" data-fdrag title="Drag to reorder" aria-hidden="true">⠿</span>` : ""}
         <label class="fon" title="${fld.noDisable || fld.isRsvp ? "This field is always on while it is needed" : "Show or hide this field everywhere"}"><input type="checkbox" class="check" data-fenable ${fld.own ? "checked" : ""} ${fld.noDisable || fld.isRsvp ? "disabled" : ""}> <span class="sr">Enabled</span></label>
         <strong class="fname">${esc(fld.label)}</strong>
         <span class="muted ftype">${esc(Fields.TYPES[fld.type])}${fld.enabled ? "" : " · off"}</span>
@@ -266,6 +271,7 @@ window.Settings = (() => {
         </div>
         ${base.hint ? `<small class="hint">${esc(base.hint)}</small>` : ""}
         ${rollSec}
+        ${customRoll}
         ${vals}
         <button type="button" class="linkish" data-freset ${fld.customized ? "" : "hidden"}>Reset this field to its defaults</button>
         ${fld.added ? `<button type="button" class="linkish danger-link" data-fdel>Remove this field</button>` : ""}
@@ -460,6 +466,65 @@ window.Settings = (() => {
         refreshVals(card, scopeNow(), key);
       }
     });
+    // Drag and drop: reorder fields within a section, and values within a field.
+    let drag = null;
+    const clearMarks = () => box.querySelectorAll(".drop-before,.drop-after,.dragging").forEach((x) => x.classList.remove("drop-before", "drop-after", "dragging"));
+    const after = (e, el) => { const r = el.getBoundingClientRect(); return e.clientY > r.top + r.height / 2; };
+    box.addEventListener("dragstart", (e) => {
+      const fh = e.target.closest?.("[data-fdrag]"), vh = e.target.closest?.("[data-vdrag]");
+      if (!fh && !vh) return;
+      const card = (fh || vh).closest(".fcard"), item = fh ? card : vh.closest("[data-vrow]");
+      drag = fh ? { type: "field", key: card.dataset.fkey, sec: card.closest(".fsec").dataset.sec } : { type: "val", i: Number(item.dataset.vrow), key: card.dataset.fkey };
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", "reorder");
+      e.dataTransfer.setDragImage(item, 12, 12);
+      item.classList.add("dragging");
+    });
+    box.addEventListener("dragover", (e) => {
+      if (!drag) return;
+      const tgt = drag.type === "field" ? e.target.closest(".fcard:not(.evcard)") : e.target.closest("[data-vrow]");
+      const ok = tgt && (drag.type === "field" ? tgt.closest(".fsec")?.dataset.sec === drag.sec && tgt.dataset.fkey !== drag.key && !tgt.dataset.auto : tgt.closest(".fcard")?.dataset.fkey === drag.key);
+      if (!ok) return;
+      e.preventDefault();
+      box.querySelectorAll(".drop-before,.drop-after").forEach((x) => x.classList.remove("drop-before", "drop-after"));
+      tgt.classList.add(after(e, tgt) ? "drop-after" : "drop-before");
+    });
+    box.addEventListener("drop", (e) => {
+      if (!drag) return;
+      const d = drag;
+      drag = null;
+      const scope = scopeNow();
+      if (d.type === "field") {
+        const tgt = e.target.closest(".fcard:not(.evcard)");
+        if (!tgt || tgt.dataset.fkey === d.key || tgt.dataset.auto !== undefined || tgt.closest(".fsec")?.dataset.sec !== d.sec) return clearMarks();
+        e.preventDefault();
+        const flag = after(e, tgt), all = Fields.list(scope).map((f) => f.key);
+        const inSec = all.filter((k) => { const f = Fields.get(scope, k); return !f.event && f.section === d.sec; });
+        const pos = inSec.map((k) => all.indexOf(k));
+        const moved = inSec.filter((k) => k !== d.key), at = moved.indexOf(tgt.dataset.fkey) + (flag ? 1 : 0);
+        moved.splice(at, 0, d.key);
+        moved.forEach((k, n) => (all[pos[n]] = k));
+        const o = Fields.getOverrides();
+        o[scope].order = all;
+        Fields.setOverrides(o);
+        persist();
+        return render();
+      }
+      const row = e.target.closest("[data-vrow]"), card = row?.closest(".fcard");
+      if (!row || card?.dataset.fkey !== d.key) return clearMarks();
+      e.preventDefault();
+      const t = Number(row.dataset.vrow), flag = after(e, row);
+      let at = t + (flag ? 1 : 0);
+      if (d.i < at) at--;
+      editField(scope, d.key, (f) => {
+        const v = ensureValues(f, scope, d.key), [m] = v.splice(d.i, 1);
+        v.splice(at, 0, m);
+      });
+      clearMarks();
+      refreshVals(card, scope, d.key);
+    });
+    box.addEventListener("dragend", () => { drag = null; clearMarks(); });
+
     box.addEventListener("input", (e) => {
       const el = e.target, card = el.closest(".fcard:not(.evcard)");
       if (el.dataset.evname !== undefined) {
@@ -524,6 +589,14 @@ window.Settings = (() => {
         }, { rerender: true });
       } else if (el.dataset.fsection !== undefined) {
         editField(scope, key, (f) => (f.section = el.value), { rerender: true });
+      } else if (el.dataset.fcroll !== undefined) {
+        const o = Fields.getOverrides(), c = (o.person.custom || []).find((x) => x.key === key);
+        if (c) {
+          if (el.value) c.roll = el.value;
+          else delete c.roll;
+          Fields.setOverrides(o);
+          persist();
+        }
       } else if (el.dataset.froll !== undefined) {
         editField(scope, key, (f) => (f.rollSection = el.value));
       } else if (el.dataset.fdefault !== undefined) {

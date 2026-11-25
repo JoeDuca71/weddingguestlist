@@ -311,9 +311,9 @@ dialog.sheet.wide { width: min(980px, calc(100vw - 32px)); }
 }
 
 /* Phones: filters fold behind a button, rows become cards, dialog is a bottom sheet. */
-@media (min-width: 761px) {
-  #toggle-filters { display: none; }
-}
+/* Filters fold behind the Filters button on every screen size. */
+.filters:not(.open) { display: none; }
+#toggle-filters.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 @media (max-width: 760px) {
   .brand span { display: inline; }
   .stat strong { font-size: 22px; }
@@ -322,7 +322,6 @@ dialog.sheet.wide { width: min(980px, calc(100vw - 32px)); }
   .nav-actions { margin-left: 0; width: 100%; }
   .nav-actions > * { flex: 1; }
   .nav-actions .btn { width: 100%; padding: 6px 6px; }
-  .filters:not(.open) { display: none; }
   .ms { flex: 1 1 45%; }
   .ms > summary { justify-content: space-between; }
   .form-grid { grid-template-columns: 1fr; }

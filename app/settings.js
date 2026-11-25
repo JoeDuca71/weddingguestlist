@@ -282,7 +282,7 @@ window.Settings = (() => {
       ? `<label class="inline">Shown on the family form under <select data-froll>${Fields.sections("family").map((s) => `<option value="${s.id}" ${s.id === fld.rollSection ? "selected" : ""}>${esc(s.name || "(no title)")}</option>`).join("")}</select></label>`
       : "";
     const customRoll = fld.custom && scope === "person"
-      ? `<label class="inline">Also show on the family form <select data-fcroll><option value="" ${fld.rollSection ? "" : "selected"}>Not on the family form</option>${Fields.sections("family").map((x) => `<option value="${x.id}" ${x.id === fld.rollSection ? "selected" : ""}>Under ${esc(x.name || "(no title)")}</option>`).join("")}</select></label><small class="hint">On the family form, one change sets everyone in the family. It shows "Multiple" when they differ.</small>`
+      ? `<label class="inline">Also show on the family form <select data-fcroll><option value="" ${fld.rollSection ? "" : "selected"}>Not on the family form</option>${Fields.sections("family").map((x) => `<option value="${x.id}" ${x.id === fld.rollSection ? "selected" : ""}>Under ${esc(x.name || "(no title)")}</option>`).join("")}</select></label><small class="hint">On the family form, changing this field sets it for all people in the family. If people have different selections, then it shows "Multiple" on the Family page.</small>`
       : "";
     return `<details class="fcard ${fld.enabled ? "" : "off"}" data-fkey="${key}" ${open ? "open" : ""}>
       <summary>

@@ -249,10 +249,14 @@ table.guests .c-notes, table.guests .c-gift { max-width: 260px; overflow: hidden
 
 .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; background: var(--st-unknown-soft); color: var(--st-unknown-ink); }
 /* The four status colors (Settings > Design) drive every pill. */
-.v-yes, .v-likely, .v-done, .v-seated, .v-delivered, .v-yes-host-hotel, .v-yes-tracey-bnb, .v-yes-other-home { background: var(--st-done-soft); color: var(--st-done-ink); }
-.v-maybe, .v-maybe-host-hotel, .v-multiple, .v-emailed, .v-postcard-sent, .v-texted-for-address, .v-texted-for-rsvp { background: var(--st-process-soft); color: var(--st-process-ink); }
-.v-need-to-seat, .v-need-to-do, .v-not-contacted, .v-need-to-text-for-address { background: var(--st-todo-soft); color: var(--st-todo-ink); }
-.v-no { background: var(--surface-2); color: var(--text); text-decoration: line-through; text-decoration-color: var(--silver); }
+.pill.c-done { background: var(--st-done-soft); color: var(--st-done-ink); }
+.pill.c-process { background: var(--st-process-soft); color: var(--st-process-ink); }
+.pill.c-todo { background: var(--st-todo-soft); color: var(--st-todo-ink); }
+.pill.c-unknown, .pill.c-none { background: var(--st-unknown-soft); color: var(--st-unknown-ink); }
+.pill.c-accent { background: var(--accent); color: var(--on-accent, #fff); }
+.pill.c-muted { background: var(--surface-2); color: var(--text); text-decoration: line-through; text-decoration-color: var(--silver); }
+.cbfield { display: inline-flex; align-items: center; gap: 6px; }
+.field select[multiple] { height: auto; }
 
 .empty { text-align: center; color: var(--muted); padding: 40px 16px; background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
 
@@ -466,3 +470,27 @@ table.guests.preview { pointer-events: none; }
 .partner .field input, .partner .field select { background: var(--surface); }
 .couple-line { margin: 14px 0 0 !important; font-size: 17px; min-height: 1.4em; }
 @media (max-width: 760px) { .partners { grid-template-columns: 1fr; } }
+
+/* Settings > Fields */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.fsec { margin: 18px 0 8px; }
+.fsec-head { margin-bottom: 6px; }
+.sec-name { font: inherit; font-weight: 700; font-size: 15px; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 4px 8px; margin-left: -8px; min-width: 240px; color: var(--text); }
+.sec-name:hover, .sec-name:focus { border-color: var(--border); background: var(--surface); }
+.rolled { font-size: 13px; margin: 4px 0 0; }
+.fcard { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); margin: 6px 0; }
+.fcard.off { opacity: .65; }
+.fcard > summary { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; list-style: none; }
+.fcard > summary::-webkit-details-marker { display: none; }
+.fcard > summary::before { content: "▸"; color: var(--muted); font-size: 12px; }
+.fcard[open] > summary::before { content: "▾"; }
+.fcard .ftype { margin-left: auto; font-size: 13px; }
+.fbody { padding: 4px 14px 14px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
+.fbody .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+.vals h5 { margin: 6px 0; font-size: 13px; }
+.val-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(140px, 190px) minmax(80px, auto) auto; gap: 8px; align-items: center; margin: 4px 0; }
+.val-row input, .val-row select, .inline select { font: inherit; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.val-row input[readonly] { opacity: .75; }
+.val-row .pill { justify-self: start; }
+.inline { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; }
+@media (max-width: 640px) { .val-row { grid-template-columns: 1fr 1fr; } }

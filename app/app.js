@@ -1,165 +1,163 @@
 "use strict";
 
 // ---------- Field definitions ----------
+// Built from Fields (fields.js), which holds the defaults plus whatever was changed in Settings > Fields.
+// buildModel() runs at start-up and again whenever those settings change.
 
-const OPT = {
-  rsvp: ["TBD", "Yes", "No", "Maybe"],
-  afterparty: ["Unknown", "Yes", "Likely", "Maybe", "No"],
-  afterparty_swag: ["Unknown", "Yes", "Maybe", "No"],
-  table_status: ["Need to Seat", "Seated", "n/a"],
-  affiliation: ["Dylan Family", "Dylan Friends", "Joe Family", "Joe Friends", "Mutual"],
-  invite_status: ["Not Contacted", "Need to Text for Address", "Texted for Address", "Emailed", "Postcard Sent", "Texted for RSVP", "Done"],
-  yesno: ["Yes", "No"],
-  hotel_status: ["Unknown", "Maybe Host Hotel", "Yes Host Hotel", "Yes Tracey BnB", "Yes Other Home", "n/a"],
-  hotel_swag: ["Need to Do", "Done", "Delivered", "n/a"],
-  transportation: ["Self", "Hotel Shuttle", "Tracey BnB Shuttle", "Unknown"],
-  role: ["Guest", "Wedding Party", "DJ", "Officiant"],
-};
 const MULTI = "Multiple";
-
-// Fields stored on each person.
-const PERSON_FIELDS = [
-  { key: "first_name", label: "First name", type: "text" },
-  { key: "last_name", label: "Last name", type: "text" },
-  { key: "role", label: "Role", type: "combo", options: OPT.role },
-  { key: "invited", label: "Invited (count)", type: "number" },
-  { key: "rsvp", label: "RSVP", type: "select", options: OPT.rsvp },
-  { key: "rd_invited", label: "Rehearsal dinner invited", type: "number" },
-  { key: "rd_status", label: "Rehearsal dinner RSVP", type: "select", options: OPT.rsvp },
-  { key: "afterparty", label: "After-party", type: "select", options: OPT.afterparty },
-  { key: "afterparty_swag", label: "After-party SWAG", type: "select", options: OPT.afterparty_swag },
-  { key: "table_status", label: "Table status", type: "select", options: OPT.table_status },
-  { key: "table_number", label: "Table #", type: "text" },
-  { key: "phone", label: "Phone", type: "tel" },
-  { key: "email", label: "Email", type: "email" },
-  { key: "notes", label: "Notes", type: "textarea" },
-];
-const PF = Object.fromEntries(PERSON_FIELDS.map((f) => [f.key, f]));
-const PERSON_GROUPS = [
-  { title: "Name", keys: ["first_name", "last_name", "role"] },
-  { title: "Wedding", keys: ["invited", "rsvp"] },
-  { title: "Rehearsal dinner", keys: ["rd_invited", "rd_status"] },
-  { title: "After-party", keys: ["afterparty", "afterparty_swag"] },
-  { title: "Seating", keys: ["table_status", "table_number"] },
-  { title: "Contact", keys: ["phone", "email"] },
-  { title: "", keys: ["notes"] },
-];
-const PERSON_DEFAULTS = {
-  first_name: "", last_name: "", role: "Guest", invited: 1, rsvp: "TBD", rd_invited: 0, rd_status: "TBD",
-  afterparty: "Unknown", afterparty_swag: "Unknown", table_status: "Need to Seat", table_number: "", phone: "", email: "", notes: "",
-};
-
-// Fields stored on the family.
-const FAMILY_FIELDS = [
-  { key: "family_name", label: "Family name", type: "text", hint: "How we address them, e.g. The Brad Johnson Family" },
-  { key: "affiliation", label: "Affiliation", type: "select", options: OPT.affiliation, blank: true },
-  { key: "invite_status", label: "Invite status", type: "select", options: OPT.invite_status },
-  { key: "live_in_town", label: "Live in town?", type: "select", options: OPT.yesno, blank: true },
-  { key: "hotel_status", label: "Hotel", type: "select", options: OPT.hotel_status },
-  { key: "hotel_swag", label: "Hotel SWAG bag", type: "select", options: OPT.hotel_swag },
-  { key: "transportation", label: "Transportation", type: "select", options: OPT.transportation },
-  { key: "address", label: "Address", type: "text" },
-  { key: "city", label: "City", type: "text" },
-  { key: "state", label: "State", type: "text" },
-  { key: "zip", label: "Zip", type: "text" },
-  { key: "gift", label: "Gift", type: "textarea" },
-  { key: "thank_you_sent", label: "Thank-you sent?", type: "select", options: OPT.yesno },
-  { key: "notes", label: "Notes", type: "textarea" },
-];
-const FF = Object.fromEntries(FAMILY_FIELDS.map((f) => [f.key, f]));
-const FAMILY_DEFAULTS = {
-  family_name: "", affiliation: null, invite_status: "Not Contacted", live_in_town: null, hotel_status: "Unknown",
-  hotel_swag: "Need to Do", transportation: "Unknown", address: "", city: "", state: "", zip: "", gift: "", thank_you_sent: "No", notes: "",
-};
-
-// Person fields that roll up to the family: same value for everyone, or "Multiple".
-// Setting one on the family copies it down to the people.
-const ROLLUPS = ["rsvp", "rd_status", "afterparty", "afterparty_swag", "table_status", "table_number"];
-const ROLLUP_LABEL = { rsvp: "RSVP", rd_status: "Rehearsal dinner", afterparty: "After-party", afterparty_swag: "After-party SWAG", table_status: "Table status", table_number: "Table #" };
-
-// Groups in the edit dialog. Rollup keys are shown as family-level controls.
-const FAMILY_GROUPS = [
-  { title: "Family", keys: ["family_name", "affiliation"] },
-  { title: "Invite & RSVP", keys: ["invite_status", "rsvp", "rd_status"] },
-  { title: "Travel & stay", keys: ["live_in_town", "hotel_status", "hotel_swag", "transportation"] },
-  { title: "After-party", keys: ["afterparty", "afterparty_swag"] },
-  { title: "Seating", keys: ["table_status", "table_number"] },
-  { title: "Address", keys: ["address", "city", "state", "zip"] },
-  { title: "Gifts & notes", keys: ["gift", "thank_you_sent", "notes"] },
-];
-
-// Columns the main list can show. Everything is per family.
+const BLANK = "__blank__";
 const sum = (arr, k) => arr.reduce((n, p) => n + (Number(p[k]) || 0), 0);
 const uniqJoin = (arr) => [...new Set(arr.filter(Boolean))].join(", ");
-const COLUMNS = [
-  { key: "family_name", label: "Family", fixed: true },
-  { key: "people", label: "People", get: (f) => f.people.map(personName).join(", ") },
-  { key: "party", label: "Invited", num: true, get: (f) => sum(f.people, "invited") },
-  { key: "attending", label: "Coming", num: true, get: (f) => sum(f.people.filter((p) => p.rsvp === "Yes"), "invited") },
-  { key: "affiliation", label: "Affiliation" },
-  { key: "rsvp", label: "RSVP", pill: true },
-  { key: "invite_status", label: "Invite status", pill: true },
-  { key: "rd_invited", label: "Rehearsal invited", num: true, get: (f) => sum(f.people, "rd_invited") },
-  { key: "rd_status", label: "Rehearsal RSVP", pill: true },
-  { key: "live_in_town", label: "In town?" },
-  { key: "hotel_status", label: "Hotel", pill: true },
-  { key: "hotel_swag", label: "SWAG bag", pill: true },
-  { key: "transportation", label: "Transport" },
-  { key: "afterparty", label: "After-party", pill: true },
-  { key: "afterparty_swag", label: "After-party SWAG", pill: true },
-  { key: "table_status", label: "Table status", pill: true },
-  { key: "table_number", label: "Table #" },
-  { key: "roles", label: "Roles", get: (f) => uniqJoin(f.people.map((p) => p.role).filter((r) => r !== "Guest")) },
-  { key: "address", label: "Address" },
-  { key: "city", label: "City" },
-  { key: "state", label: "State" },
-  { key: "zip", label: "Zip" },
-  { key: "phones", label: "Phone", get: (f) => uniqJoin(f.people.map((p) => p.phone)) },
-  { key: "emails", label: "Email", get: (f) => uniqJoin(f.people.map((p) => p.email)) },
-  { key: "gift", label: "Gift" },
-  { key: "thank_you_sent", label: "Thank-you sent" },
-  { key: "notes", label: "Notes" },
-];
-const COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
-// Column presets ("views"). The first one is the default.
-const VIEWS = [
-  { name: "RSVPs", cols: ["family_name", "people", "party", "attending", "affiliation", "rsvp", "invite_status", "rd_invited", "rd_status", "notes"] },
-  { name: "Seating", cols: ["family_name", "people", "attending", "affiliation", "rsvp", "table_status", "table_number", "notes"] },
-  { name: "Hotel", cols: ["family_name", "attending", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation"] },
-  { name: "Gifts", cols: ["family_name", "attending", "affiliation", "rsvp", "gift", "thank_you_sent", "notes", "address", "city", "state", "zip"] },
-];
-const DEFAULT_COLUMNS = VIEWS[0].cols;
 
-// Filters above the list. Person-level filters match a family when ANY of its
-// people match, and also narrow which people go into the People export.
-const BLANK = "__blank__";
-const FILTERS = [
-  { key: "rsvp", label: "RSVP", person: true, options: OPT.rsvp },
-  { key: "affiliation", label: "Affiliation", options: OPT.affiliation, blank: true },
-  { key: "live_in_town", label: "In town?", options: OPT.yesno, blank: true },
-  { key: "invite_status", label: "Invite status", options: OPT.invite_status },
-  { key: "hotel_status", label: "Hotel", options: OPT.hotel_status },
-  { key: "rd_inv", label: "Rehearsal invited", person: true, options: OPT.yesno, get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
-  { key: "rd_status", label: "Rehearsal RSVP", person: true, options: OPT.rsvp, onlyInvited: true },
-  { key: "afterparty", label: "After-party", person: true, options: OPT.afterparty },
-  { key: "table_status", label: "Table status", person: true, options: OPT.table_status },
-  { key: "role", label: "Role", person: true },
-  { key: "state", label: "State", blank: true },
-];
+let PERSON_FIELDS, PF, PERSON_GROUPS, PERSON_DEFAULTS, FAMILY_FIELDS, FF, FAMILY_GROUPS, FAMILY_DEFAULTS;
+let ROLLUPS, ROLLUP_LABEL, COLUMNS, COL, VIEWS, DEFAULT_COLUMNS, FILTERS, BULK_FIELDS, OPT_VALUES, IN_TOWN;
 
-// Multi-edit can change any of these on many families at once.
-const BULK_FIELDS = [
-  ...["affiliation", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation", "thank_you_sent"].map((k) => ({ ...FF[k], scope: "family" })),
-  ...ROLLUPS.map((k) => ({ ...PF[k], label: ROLLUP_LABEL[k] + " (everyone)", scope: "people" })),
-  ...["city", "state", "gift", "notes"].map((k) => ({ ...FF[k], type: "text", scope: "family" })),
-];
+// How a configured field is drawn: text/textarea/number/select/combo/checkbox/multi.
+const uiType = (f) =>
+  ({ text: "text", longtext: "textarea", number: "number", dropdown: f.combo ? "combo" : "select", checkbox: "checkbox", multiselect: "multi" })[f.type];
+function toUi(f) {
+  return {
+    key: f.key, label: f.label, type: uiType(f), input: f.input, hint: f.hint, enabled: f.enabled, cfgType: f.type,
+    options: f.values.map((x) => x.v), blank: f.nullable && f.type === "dropdown", scope: f.scope, def: f.default,
+  };
+}
+const hasVals = (f) => f.cfgType === "dropdown" || f.cfgType === "checkbox" || f.cfgType === "multiselect";
+const isOn = (scope, key) => !!Fields.get(scope, key)?.enabled;
+
+function buildModel() {
+  const pAll = Fields.list("person").map(toUi), fAll = Fields.list("family").map(toUi);
+  PF = Object.fromEntries(pAll.map((f) => [f.key, f]));
+  FF = Object.fromEntries(fAll.map((f) => [f.key, f]));
+  PERSON_FIELDS = pAll.filter((f) => f.enabled);
+  FAMILY_FIELDS = fAll.filter((f) => f.enabled);
+  PERSON_DEFAULTS = Object.fromEntries(pAll.map((f) => [f.key, f.def]));
+  FAMILY_DEFAULTS = Object.fromEntries(fAll.map((f) => [f.key, f.def]));
+
+  const pSecs = Fields.sections("person"), fSecs = Fields.sections("family");
+  PERSON_GROUPS = pSecs
+    .map((s) => ({ title: s.name, keys: PERSON_FIELDS.filter((f) => Fields.get("person", f.key).section === s.id).map((f) => f.key) }))
+    .filter((g) => g.keys.length);
+
+  // Person fields that roll up to the family: same value for everyone, or "Multiple".
+  const rollFields = Fields.list("person").filter((f) => f.rollup && f.enabled);
+  ROLLUPS = rollFields.map((f) => f.key);
+  ROLLUP_LABEL = Object.fromEntries(rollFields.map((f) => [f.key, f.label]));
+  FAMILY_GROUPS = fSecs
+    .map((s) => ({
+      title: s.name,
+      keys: [
+        ...Fields.list("family").filter((f) => f.enabled && f.section === s.id).map((f) => f.key),
+        ...rollFields.filter((f) => f.rollSection === s.id).map((f) => f.key),
+      ],
+    }))
+    .filter((g) => g.keys.length);
+
+  // Living in town fills in the travel fields (only the ones that exist and still have the "n/a" / "Self" values).
+  IN_TOWN = {};
+  if (isOn("family", "live_in_town") && Fields.optionValues("family", "live_in_town").includes("Yes")) {
+    const want = { hotel_status: "n/a", hotel_swag: "n/a", transportation: "Self" };
+    for (const [k, v] of Object.entries(want)) if (isOn("family", k) && Fields.optionValues("family", k).includes(v)) IN_TOWN[k] = v;
+  }
+
+  const fOn = (k) => isOn("family", k), pOn = (k) => isOn("person", k);
+  const lab = (scope, k) => Fields.get(scope, k).label;
+  // Columns the main list can show. Everything is per family.
+  const col = (scope, key, extra = {}) => ({ key, scope, label: lab(scope, key), color: Fields.hasValues(Fields.get(scope, key).type) && Fields.get(scope, key).type !== "multiselect", ...extra });
+  const all = [
+    { key: "family_name", label: lab("family", "family_name"), fixed: true },
+    { key: "people", label: "People", get: (f) => f.people.map(personName).join(", ") },
+    { key: "party", label: lab("person", "invited"), num: true, get: (f) => sum(f.people, "invited") },
+    { key: "attending", label: "Coming", num: true, get: (f) => sum(f.people.filter((p) => p.rsvp === "Yes"), "invited") },
+    fOn("affiliation") && col("family", "affiliation"),
+    pOn("rsvp") && col("person", "rsvp"),
+    fOn("invite_status") && col("family", "invite_status"),
+    pOn("rd_invited") && col("person", "rd_invited", { num: true, get: (f) => sum(f.people, "rd_invited") }),
+    pOn("rd_status") && col("person", "rd_status"),
+    fOn("live_in_town") && col("family", "live_in_town"),
+    fOn("hotel_status") && col("family", "hotel_status"),
+    fOn("hotel_swag") && col("family", "hotel_swag"),
+    fOn("transportation") && col("family", "transportation"),
+    pOn("afterparty") && col("person", "afterparty"),
+    pOn("afterparty_swag") && col("person", "afterparty_swag"),
+    pOn("table_status") && col("person", "table_status"),
+    pOn("table_number") && col("person", "table_number"),
+    pOn("role") && { key: "roles", label: lab("person", "role") + "s", get: (f) => uniqJoin(f.people.map((p) => p.role).filter((r) => r !== "Guest")) },
+    ...["address", "city", "state", "zip"].map((k) => fOn(k) && col("family", k)),
+    pOn("phone") && { key: "phones", label: lab("person", "phone"), get: (f) => uniqJoin(f.people.map((p) => p.phone)) },
+    pOn("email") && { key: "emails", label: lab("person", "email"), get: (f) => uniqJoin(f.people.map((p) => p.email)) },
+    fOn("gift") && col("family", "gift"),
+    fOn("thank_you_sent") && col("family", "thank_you_sent"),
+    fOn("notes") && col("family", "notes"),
+  ];
+  COLUMNS = all.filter(Boolean);
+  COL = Object.fromEntries(COLUMNS.map((c) => [c.key, c]));
+  // Column presets ("views"). The first one is the default.
+  const views = [
+    { name: "RSVPs", cols: ["family_name", "people", "party", "attending", "affiliation", "rsvp", "invite_status", "rd_invited", "rd_status", "notes"] },
+    { name: "Seating", cols: ["family_name", "people", "attending", "affiliation", "rsvp", "table_status", "table_number", "notes"] },
+    { name: "Hotel", cols: ["family_name", "attending", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation"] },
+    { name: "Gifts", cols: ["family_name", "attending", "affiliation", "rsvp", "gift", "thank_you_sent", "notes", "address", "city", "state", "zip"] },
+  ];
+  VIEWS = views.map((v) => ({ ...v, cols: v.cols.filter((k) => COL[k]) }));
+  DEFAULT_COLUMNS = VIEWS[0].cols;
+
+  // Filters above the list. Person-level filters match a family when ANY of its
+  // people match, and also narrow which people go into the People export.
+  const fil = (scope, key, extra = {}) => {
+    const f = Fields.get(scope, key);
+    if (!f?.enabled || f.type === "multiselect") return null;
+    return { key, label: f.label, person: scope === "person", options: hasVals(f) ? f.values.map((x) => x.v) : undefined, blank: scope === "family" && f.nullable, ...extra };
+  };
+  FILTERS = [
+    fil("person", "rsvp"),
+    fil("family", "affiliation"),
+    fil("family", "live_in_town"),
+    fil("family", "invite_status"),
+    fil("family", "hotel_status"),
+    pOn("rd_invited") && { key: "rd_inv", label: lab("person", "rd_invited"), person: true, options: ["Yes", "No"], get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
+    fil("person", "rd_status", { onlyInvited: pOn("rd_invited") }),
+    fil("person", "afterparty"),
+    fil("person", "table_status"),
+    fil("person", "role"),
+    fil("family", "state", { blank: true }),
+  ].filter(Boolean);
+
+  // Multi-edit can change any of these on many families at once.
+  const bulkOf = (scope, key, label) => {
+    const f = scope === "people" ? PF[key] : FF[key];
+    const sel = hasVals(f) && f.cfgType !== "multiselect";
+    return { key, label: label || f.label, type: sel ? "select" : "text", options: f.options, blank: f.blank, scope };
+  };
+  BULK_FIELDS = [
+    ...["affiliation", "invite_status", "live_in_town", "hotel_status", "hotel_swag", "transportation", "thank_you_sent"].filter(fOn).map((k) => bulkOf("family", k)),
+    ...ROLLUPS.map((k) => bulkOf("people", k, ROLLUP_LABEL[k] + " (everyone)")),
+    ...["city", "state", "gift", "notes"].filter(fOn).map((k) => ({ ...bulkOf("family", k), type: "text" })),
+  ];
+  OPT_VALUES = new Set([...Fields.list("family"), ...Fields.list("person")].flatMap((f) => f.values.map((x) => x.v)));
+}
+// After the model changes, drop anything in the saved view state that no longer exists.
+function reconcileState() {
+  for (const k of Object.keys(state.filters)) if (!FILTERS.some((d) => d.key === k)) delete state.filters[k];
+  state.columns = state.columns.filter((k) => COL[k]);
+  if (!state.columns.includes("family_name")) state.columns.unshift("family_name");
+  if (!COL[state.sort.key]) state.sort = { key: "family_name", dir: 1 };
+  if (!BULK_FIELDS.some((f) => f.key === state.bulkField)) state.bulkField = BULK_FIELDS[0]?.key;
+}
+buildModel();
+Fields.onChange(() => {
+  buildModel();
+  reconcileState();
+  if (state.tab === "main") render();
+  else if (state.tab === "blist") renderBlist();
+});
 
 // The B-list: people we haven't contacted yet and may or may not ever invite.
 // Promoting one moves them onto the main list as a new family.
-const BLIST_FIELDS = [
+const affOptions = () => Fields.optionValues("family", "affiliation");
+const blistFields = () => [
   { key: "family_name", label: "Name", type: "text", hint: "How we'd address them, e.g. The Brad Johnson Family" },
   { key: "people", label: "People (one per line)", type: "textarea", hint: "e.g. Brad Johnson. Leave blank for one person named above." },
-  { key: "affiliation", label: "Affiliation", type: "select", options: OPT.affiliation, blank: true },
+  ...(isOn("family", "affiliation") ? [{ key: "affiliation", label: Fields.get("family", "affiliation").label, type: "select", options: affOptions(), blank: true }] : []),
   { key: "would_replace", label: "Would make room for", type: "text", hint: "e.g. a Dylan friend who declined" },
   { key: "phone", label: "Phone", type: "tel" },
   { key: "email", label: "Email", type: "email" },
@@ -206,18 +204,18 @@ function toast(msg, isError) {
 // The family value of a person field: everyone's shared value, or "Multiple".
 // Rehearsal dinner only counts people invited to it.
 function rollup(people, key) {
-  const pool = key === "rd_status" ? people.filter((p) => Number(p.rd_invited) > 0) : people;
+  const pool = onlyInvitedToRd(key) ? people.filter((p) => Number(p.rd_invited) > 0) : people;
   if (!pool.length) return "";
   const vals = new Set(pool.map((p) => p[key] ?? ""));
   return vals.size === 1 ? [...vals][0] : MULTI;
 }
 // Which people a family-level change to `key` applies to.
-const targetsFor = (people, key) => (key === "rd_status" ? people.filter((p) => Number(p.rd_invited) > 0) : people);
+const targetsFor = (people, key) => (onlyInvitedToRd(key) ? people.filter((p) => Number(p.rd_invited) > 0) : people);
+// Rehearsal RSVP only counts people invited to the rehearsal dinner (when that count is switched on).
+const onlyInvitedToRd = (key) => key === "rd_status" && isOn("person", "rd_invited");
 
-// Everyone has answered Yes or No → invite is Done.
+// Everyone has answered Yes or No → invite is Done (when the invite status field is in use).
 const allAnswered = (people) => people.length > 0 && people.every((p) => p.rsvp === "Yes" || p.rsvp === "No");
-// Living in town fills in the travel fields.
-const IN_TOWN = { hotel_status: "n/a", hotel_swag: "n/a", transportation: "Self" };
 
 function suggestFamilyName(people) {
   const named = people.filter((p) => p.first_name || p.last_name);
@@ -482,15 +480,15 @@ function render() {
   $("#count").textContent = fams.length === total ? `${total} families` : `${fams.length} of ${total} families`;
 }
 
-function pill(v) {
+function pill(v, scope, key) {
   if (v === "" || v == null) return `<span class="muted">—</span>`;
-  return `<span class="pill v-${slug(v)}">${esc(v)}</span>`;
+  return `<span class="pill c-${Fields.colorOf(scope, key, v)}">${esc(v)}</span>`;
 }
 function cellHtml(f, key) {
   const c = COL[key];
   const v = colValue(f, key);
   if (key === "family_name") return `<strong>${esc(v)}</strong>`;
-  if (c.pill) return pill(v);
+  if (c.color) return pill(v, c.scope, key);
   if (v === "" || v == null) return `<span class="muted">—</span>`;
   return esc(v);
 }
@@ -548,43 +546,50 @@ function renderStats() {
   // A number you can click to filter the list to that value (click again to clear).
   const chip = (key, val, count, label, big) =>
     `<button type="button" class="sv ${big ? "big" : ""} ${on(key, val) ? "on" : ""}" data-stat="${key}" data-val="${esc(val)}" title="Show only ${esc(label)}">${count}<small> ${esc(label)}</small></button>`;
-
-  const rsvp = withoutFilter("rsvp", (fams) => {
-    const people = visiblePeople(fams);
-    return { t: tally(people, "rsvp", "invited"), invited: sum(people, "invited") };
-  });
-  const rd = withoutFilter("rd_status", (fams) => {
-    const people = visiblePeople(fams).filter((p) => Number(p.rd_invited) > 0);
-    return { t: tally(people, "rd_status", "rd_invited"), invited: sum(people, "rd_invited") };
-  });
-  const hotel = withoutFilter("hotel_status", (fams) => ({
-    yes: fams.filter((f) => f.hotel_status === "Yes Host Hotel").length,
-    maybe: fams.filter((f) => f.hotel_status === "Maybe Host Hotel").length,
-  }));
-  const ap = withoutFilter("afterparty", (fams) => tally(visiblePeople(fams), "afterparty", "invited"));
+  const has = (scope, key, v) => isOn(scope, key) && Fields.optionValues(scope, key).includes(v);
+  const lower = (v) => v.toLowerCase();
   const filtered = activeFilterCount() || state.search;
-  const rest = (key, t, vals) => vals.map(([v, l]) => chip(key, v, n(t[v]), l)).join(" · ");
-  $("#stats").innerHTML = `
-    <div class="stat s-rsvp">
-      <span>RSVP${filtered ? " (this view)" : ""}</span>
-      <strong>${chip("rsvp", "Yes", n(rsvp.t.Yes), "yes", true)} <small>of ${rsvp.invited} invited</small></strong>
-      <em>${rest("rsvp", rsvp.t, [["No", "no"], ["Maybe", "maybe"], ["TBD", "TBD"]])}</em>
-    </div>
-    <div class="stat s-rd">
-      <span>Rehearsal dinner</span>
-      <strong>${chip("rd_status", "Yes", n(rd.t.Yes), "yes", true)} <small>of ${rd.invited} invited</small></strong>
-      <em>${rest("rd_status", rd.t, [["No", "no"], ["Maybe", "maybe"], ["TBD", "TBD"]])}</em>
-    </div>
-    <div class="stat s-hotel">
+  const tiles = [];
+
+  // A card for a person-level answer field like RSVP: the "Yes" count big, the other values smaller.
+  const answerCard = (cls, title, key, weight, only) => {
+    if (!has("person", key, "Yes")) return;
+    const r = withoutFilter(key, (fams) => {
+      const people = visiblePeople(fams).filter(only || (() => true));
+      return { t: tally(people, key, weight), invited: sum(people, weight) };
+    });
+    const others = Fields.optionValues("person", key).filter((v) => v !== "Yes");
+    tiles.push(`<div class="stat ${cls}">
+      <span>${esc(title)}${title === Fields.get("person", "rsvp").label && filtered ? " (this view)" : ""}</span>
+      <strong>${chip(key, "Yes", n(r.t.Yes), lower("Yes"), true)} <small>of ${r.invited} invited</small></strong>
+      <em>${others.map((v) => chip(key, v, n(r.t[v]), lower(v))).join(" · ")}</em>
+    </div>`);
+  };
+  answerCard("s-rsvp", Fields.get("person", "rsvp").label, "rsvp", "invited");
+  if (isOn("person", "rd_invited"))
+    answerCard("s-rd", Fields.get("person", "rd_status")?.label || "Rehearsal dinner", "rd_status", "rd_invited", (p) => Number(p.rd_invited) > 0);
+
+  if (has("family", "hotel_status", "Yes Host Hotel") && has("family", "hotel_status", "Maybe Host Hotel")) {
+    const hotel = withoutFilter("hotel_status", (fams) => ({
+      yes: fams.filter((f) => f.hotel_status === "Yes Host Hotel").length,
+      maybe: fams.filter((f) => f.hotel_status === "Maybe Host Hotel").length,
+    }));
+    tiles.push(`<div class="stat s-hotel">
       <span>Host Hotel (families)</span>
       <strong>${chip("hotel_status", "Yes Host Hotel", hotel.yes, "yes", true)} · ${chip("hotel_status", "Maybe Host Hotel", hotel.maybe, "maybe", true)}</strong>
       <em>${hotel.yes + hotel.maybe} rooms if every maybe comes</em>
-    </div>
-    <div class="stat s-ap">
-      <span>After-party</span>
+    </div>`);
+  }
+  if (has("person", "afterparty", "Yes")) {
+    const ap = withoutFilter("afterparty", (fams) => tally(visiblePeople(fams), "afterparty", "invited"));
+    const others = Fields.optionValues("person", "afterparty").filter((v) => v !== "Yes");
+    tiles.push(`<div class="stat s-ap">
+      <span>${esc(Fields.get("person", "afterparty").label)}</span>
       <strong>${chip("afterparty", "Yes", n(ap.Yes), "yes", true)}</strong>
-      <em>${rest("afterparty", ap, [["Likely", "likely"], ["Maybe", "maybe"], ["No", "no"], ["Unknown", "unknown"]])}</em>
-    </div>`;
+      <em>${others.map((v) => chip("afterparty", v, n(ap[v]), lower(v))).join(" · ")}</em>
+    </div>`);
+  }
+  $("#stats").innerHTML = tiles.join("");
 }
 
 function renderFilters() {
@@ -642,11 +647,22 @@ function inputHtml(f, value, attrs) {
     const opts = [...new Set([...f.options, ...extra])];
     return `<select ${attrs} data-combo="1">${optionsHtml(opts, v)}<option value="__new__">+ New…</option></select>`;
   }
+  // Checkbox: the first value means ticked, the second unticked.
+  if (f.type === "checkbox")
+    return `<span class="cbfield"><input type="checkbox" class="check" ${v === f.options[0] ? "checked" : ""} data-on="${esc(f.options[0])}" data-off="${esc(f.options[1])}" ${attrs}> <span>${esc(f.options[0])}</span></span>`;
+  // Multi-select: stored as one comma-separated text.
+  if (f.type === "multi") {
+    const picked = String(v).split(",").map((x) => x.trim()).filter(Boolean);
+    const opts = [...new Set([...f.options, ...picked])];
+    return `<select multiple size="${Math.min(6, Math.max(2, opts.length))}" ${attrs} data-multi="1">${opts.map((o) => `<option ${picked.includes(o) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  }
   if (f.type === "textarea") return `<textarea rows="2" ${attrs}>${esc(v)}</textarea>`;
   if (f.type === "number") return `<input type="number" min="0" step="1" inputmode="numeric" value="${esc(v)}" ${attrs}>`;
-  return `<input type="${f.type === "tel" ? "tel" : f.type === "email" ? "email" : "text"}" value="${esc(v)}" ${attrs}>`;
+  return `<input type="${f.input === "tel" ? "tel" : f.input === "email" ? "email" : "text"}" value="${esc(v)}" ${attrs}>`;
 }
 function readInput(el) {
+  if (el.type === "checkbox") return el.checked ? el.dataset.on : el.dataset.off;
+  if (el.multiple) return [...el.selectedOptions].map((o) => o.value).join(", ");
   if (el.type === "number") return el.value === "" ? 0 : Math.max(0, Math.round(Number(el.value)));
   return el.value.trim() === "" ? (el.tagName === "SELECT" ? null : "") : el.value;
 }
@@ -683,10 +699,10 @@ function familyFieldHtml(key) {
     const pf = PF[key];
     const val = rollup(draft.people, key);
     const label = `${ROLLUP_LABEL[key]} <i class="badge" title="Rolls up from each person. Changing it here sets everyone.">everyone</i>`;
-    if (key === "rd_status" && !draft.people.some((p) => Number(p.rd_invited) > 0))
+    if (onlyInvitedToRd(key) && !draft.people.some((p) => Number(p.rd_invited) > 0))
       return `<label class="field"><span>${label}</span><input disabled value="Nobody invited" data-roll="${key}"></label>`;
     const ctl =
-      pf.type === "select"
+      pf.options.length && pf.cfgType !== "multiselect"
         ? `<select data-roll="${key}">${optionsHtml(pf.options, val, { multi: true })}</select>`
         : `<input data-roll="${key}" value="${esc(val === MULTI ? "" : val)}" placeholder="${val === MULTI ? "Multiple" : ""}">`;
     return `<label class="field f-${key}"><span>${label}</span>${ctl}</label>`;
@@ -732,7 +748,7 @@ function renderDialog() {
 
 // Keep the family-level rollup controls in step with the people.
 function syncDialog() {
-  const rdEl = $('[data-roll="rd_status"]');
+  const rdEl = onlyInvitedToRd("rd_status") && $('[data-roll="rd_status"]');
   if (rdEl && rdEl.disabled === draft.people.some((p) => Number(p.rd_invited) > 0)) renderDialog();
   for (const key of ROLLUPS) {
     const el = $(`[data-roll="${key}"]`);
@@ -741,7 +757,7 @@ function syncDialog() {
     if (el.tagName === "SELECT") el.innerHTML = optionsHtml(PF[key].options, val, { multi: true });
     else (el.value = val === MULTI ? "" : val), (el.placeholder = val === MULTI ? "Multiple" : "");
   }
-  if (allAnswered(draft.people) && draft.family.invite_status !== "Done") setFamilyField("invite_status", "Done");
+  if (isOn("family", "invite_status") && allAnswered(draft.people) && draft.family.invite_status !== "Done") setFamilyField("invite_status", "Done");
   $$(".person").forEach((card) => ($(".pname", card).textContent = personName(draft.people[card.dataset.pi])));
   if (!draft.nameTouched) {
     draft.family.family_name = suggestFamilyName(draft.people);
@@ -751,7 +767,8 @@ function syncDialog() {
 function setFamilyField(key, v) {
   draft.family[key] = v;
   const el = $(`[data-f="${key}"]`);
-  if (el) el.value = v ?? "";
+  if (el?.type === "checkbox") el.checked = v === el.dataset.on;
+  else if (el) el.value = v ?? "";
 }
 
 function onDialogInput(e) {
@@ -759,7 +776,7 @@ function onDialogInput(e) {
   if (el.dataset.f) {
     draft.family[el.dataset.f] = readInput(el);
     if (el.dataset.f === "family_name") draft.nameTouched = el.value.trim() !== "";
-    if (el.dataset.f === "live_in_town" && el.value === "Yes") Object.entries(IN_TOWN).forEach(([k, v]) => setFamilyField(k, v));
+    if (el.dataset.f === "live_in_town" && readInput(el) === "Yes") Object.entries(IN_TOWN).forEach(([k, v]) => setFamilyField(k, v));
   } else if (el.dataset.k) {
     if (el.dataset.combo && handleCombo(el)) return;
     draft.people[el.dataset.p][el.dataset.k] = readInput(el);
@@ -838,7 +855,6 @@ function renderBulkBar() {
     <button class="linkish" id="bulk-clear">Clear selection</button>
     <button class="btn" id="bulk-done">Done</button>`;
 }
-const OPT_VALUES = new Set(Object.values(OPT).flat());
 
 async function applyBulk() {
   const f = BULK_FIELDS.find((x) => x.key === state.bulkField);
@@ -865,6 +881,27 @@ async function applyBulk() {
     toast("Couldn't update: " + e.message, true);
   }
 }
+
+// ---------- Hooks for Settings ----------
+// Renaming a value in Settings > Fields can carry the guests that use it along with it.
+window.AppHooks = {
+  async renameValue(scope, key, oldV, newV) {
+    const rows = scope === "family" ? state.families : state.people;
+    const table = scope === "family" ? "families" : "people";
+    const groups = new Map(); // new text -> ids
+    for (const r of rows) {
+      const parts = String(r[key] ?? "").split(",").map((x) => x.trim());
+      if (!parts.includes(oldV)) continue;
+      const next = [...new Set(parts.map((x) => (x === oldV ? newV : x)).filter(Boolean))].join(", ");
+      if (!groups.has(next)) groups.set(next, []);
+      groups.get(next).push(r.id);
+    }
+    for (const [next, ids] of groups) {
+      const saved = scope === "family" ? await api.updateFamilies(ids, { [key]: next }) : await api.updatePeople(ids, { [key]: next });
+      saved.forEach((r) => upsertLocal(table, r));
+    }
+  },
+};
 
 // ---------- B-list ----------
 
@@ -906,13 +943,13 @@ function renderBlist() {
   const declined = {};
   for (const f of familyViews())
     for (const p of f.people) if (p.rsvp === "No") declined[f.affiliation || ""] = (declined[f.affiliation || ""] || 0) + (Number(p.invited) || 0);
-  const affs = [...OPT.affiliation, ""];
+  const affs = [...affOptions(), ""];
   const gaps = affs
     .map((a) => ({ a, no: declined[a] || 0, bl: heads(all.filter((b) => (b.affiliation || "") === a)) }))
     .filter((r) => r.no || r.bl);
   const totalNo = Object.values(declined).reduce((n, v) => n + v, 0);
 
-  const filterBtns = [["", "All"], ...OPT.affiliation.map((a) => [a, a])]
+  const filterBtns = [["", "All"], ...affOptions().map((a) => [a, a])]
     .map(([v, l]) => `<button type="button" class="vbtn ${state.blistFilter === v ? "on" : ""}" data-blfilter="${esc(v)}">${esc(l)}</button>`)
     .join("");
 
@@ -975,7 +1012,7 @@ function openBlist(id) {
   $("#blist-form").innerHTML = `
     <div class="sheet-head"><h2>${id ? "Edit B-list entry" : "Add to B-list"}</h2><button type="button" class="x" data-bclose aria-label="Close">✕</button></div>
     <div class="sheet-body"><div class="form-grid blform">
-      ${BLIST_FIELDS.map(
+      ${blistFields().map(
         (f) => `<label class="field bf-${f.key}"><span>${esc(f.label)}</span>${inputHtml(f, bdraft[f.key], `data-bf="${f.key}"`)}${f.hint ? `<small class="hint">${esc(f.hint)}</small>` : ""}</label>`
       ).join("")}
     </div></div>
@@ -1257,7 +1294,7 @@ function wire() {
       return openFamily(id);
     }
     // Close open popovers when clicking elsewhere.
-    $$("details[open]").forEach((d) => !d.contains(t) && d.removeAttribute("open"));
+    $$("details.ms[open]").forEach((d) => !d.contains(t) && d.removeAttribute("open"));
   });
 
   const dlg = $("#family-dialog");
@@ -1276,7 +1313,7 @@ function wire() {
         : { ...PERSON_DEFAULTS, last_name: first.last_name || "" };
       ROLLUPS.forEach((k) => {
         const v = rollup(draft.people, k);
-        if (v && v !== MULTI && k !== "rd_status") p[k] = v;
+        if (v && v !== MULTI && !onlyInvitedToRd(k)) p[k] = v;
       });
       draft.people.push(p);
       renderDialog();

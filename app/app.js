@@ -17,7 +17,7 @@ const uiType = (f) =>
   ({ text: "text", longtext: "textarea", number: "number", dropdown: f.combo ? "combo" : "select", checkbox: "checkbox", multiselect: "multi" })[f.type];
 function toUi(f) {
   return {
-    key: f.key, label: f.label, type: uiType(f), input: f.input, hint: f.hint, enabled: f.enabled, cfgType: f.type,
+    key: f.key, label: f.label, type: uiType(f), input: f.input, hint: f.key === "family_name" ? f.hint : "", enabled: f.enabled, cfgType: f.type,
     options: f.values.map((x) => x.v), blank: f.nullable && f.type === "dropdown", scope: f.scope, def: f.default,
   };
 }
@@ -45,6 +45,7 @@ function buildModel() {
   FAMILY_GROUPS = fSecs
     .map((s) => ({
       title: s.name,
+      side: s.side,
       keys: [
         ...Fields.list("family").filter((f) => f.enabled && f.section === s.id).map((f) => f.key),
         ...rollFields.filter((f) => f.rollSection === s.id).map((f) => f.key),
@@ -59,6 +60,7 @@ function buildModel() {
     for (const [k, v] of Object.entries(want)) if (isOn("family", k) && Fields.optionValues("family", k).includes(v)) IN_TOWN[k] = v;
   }
 
+  const events = Fields.events().filter((e) => e.enabled);
   const fOn = (k) => isOn("family", k), pOn = (k) => isOn("person", k);
   const lab = (scope, k) => Fields.get(scope, k).label;
   // Columns the main list can show. Everything is per family.
@@ -71,14 +73,11 @@ function buildModel() {
     fOn("affiliation") && col("family", "affiliation"),
     pOn("rsvp") && col("person", "rsvp"),
     fOn("invite_status") && col("family", "invite_status"),
-    pOn("rd_invited") && col("person", "rd_invited", { num: true, get: (f) => sum(f.people, "rd_invited") }),
-    pOn("rd_status") && col("person", "rd_status"),
     fOn("live_in_town") && col("family", "live_in_town"),
     fOn("hotel_status") && col("family", "hotel_status"),
     fOn("hotel_swag") && col("family", "hotel_swag"),
     fOn("transportation") && col("family", "transportation"),
-    pOn("afterparty") && col("person", "afterparty"),
-    pOn("afterparty_swag") && col("person", "afterparty_swag"),
+    ...events.flatMap((ev) => [ev.rsvp, ...ev.fields].filter((f) => f?.enabled).map((f) => col("person", f.key, f.type === "number" ? { num: true, get: (fam) => sum(fam.people, f.key) } : {}))),
     pOn("table_status") && col("person", "table_status"),
     pOn("table_number") && col("person", "table_number"),
     pOn("role") && { key: "roles", label: lab("person", "role") + "s", get: (f) => uniqJoin(f.people.map((p) => p.role).filter((r) => r !== "Guest")) },
@@ -115,8 +114,7 @@ function buildModel() {
     fil("family", "invite_status"),
     fil("family", "hotel_status"),
     pOn("rd_invited") && { key: "rd_inv", label: lab("person", "rd_invited"), person: true, options: ["Yes", "No"], get: (p) => (Number(p.rd_invited) > 0 ? "Yes" : "No") },
-    fil("person", "rd_status", { onlyInvited: pOn("rd_invited") }),
-    fil("person", "afterparty"),
+    ...events.map((ev) => fil("person", ev.rsvpKey, { onlyInvited: ev.rsvpKey === "rd_status" && pOn("rd_invited") })),
     fil("person", "table_status"),
     fil("person", "role"),
     fil("family", "state", { blank: true }),
@@ -253,14 +251,54 @@ function makeSupabaseApi() {
       if (page.length < 1000) return rows;
     }
   }
+  // gl_people keeps the original fields as columns. Answers for related events that were added later live in one
+  // jsonb column ("extra"), so adding an event or field never needs a database change. The app sees them flat.
+  const PEOPLE_COLS = new Set(["id", "family_id", "sort_order", "first_name", "last_name", "role", "invited", "rsvp", "rd_invited", "rd_status", "afterparty", "afterparty_swag", "table_status", "table_number", "phone", "email", "notes", "created_at", "updated_at", "extra"]);
+  let hasExtra = true, warnedExtra = false;
+  const fromDb = ({ extra, ...r }) => ({ ...(extra || {}), ...r });
+  const split = (r) => {
+    const real = {}, ex = {};
+    for (const [k, v] of Object.entries(r)) if (k !== "_family") (PEOPLE_COLS.has(k) ? real : ex)[k] = v;
+    return [real, ex];
+  };
+  const noExtra = () => {
+    if (warnedExtra) return;
+    warnedExtra = true;
+    toast("Run supabase/06_related_events.sql so answers for the new events are saved.", true);
+  };
+  const toDb = (r) => {
+    const [real, ex] = split(r);
+    if (Object.keys(ex).length) hasExtra ? (real.extra = ex) : noExtra();
+    return real;
+  };
   return {
-    load: async () => ({ families: await all("gl_families"), people: await all("gl_people") }),
+    load: async () => {
+      const people = await all("gl_people");
+      if (people.length) hasExtra = "extra" in people[0];
+      return { families: await all("gl_families"), people: people.map(fromDb) };
+    },
     insertFamily: async (row) => check(await sb.from("gl_families").insert(strip(row)).select().single()),
     updateFamilies: async (ids, patch) => check(await sb.from("gl_families").update(patch).in("id", ids).select()),
     deleteFamily: async (id) => check(await sb.from("gl_families").delete().eq("id", id)),
-    insertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").insert(rows.map(strip)).select()) : []),
-    upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map(strip)).select()) : []),
-    updatePeople: async (ids, patch) => (ids.length ? check(await sb.from("gl_people").update(patch).in("id", ids).select()) : []),
+    insertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").insert(rows.map((r) => toDb(strip(r)))).select()).map(fromDb) : []),
+    upsertPeople: async (rows) => (rows.length ? check(await sb.from("gl_people").upsert(rows.map((r) => toDb(strip(r)))).select()).map(fromDb) : []),
+    updatePeople: async (ids, patch) => {
+      if (!ids.length) return [];
+      const [real, ex] = split(patch);
+      if (!Object.keys(ex).length) return check(await sb.from("gl_people").update(real).in("id", ids).select()).map(fromDb);
+      if (!hasExtra) {
+        noExtra();
+        return Object.keys(real).length ? check(await sb.from("gl_people").update(real).in("id", ids).select()).map(fromDb) : [];
+      }
+      // Answers kept in "extra" are merged per person.
+      const out = [];
+      for (const id of ids) {
+        const cur = state.people.find((p) => p.id === id) || {};
+        const mine = Object.fromEntries(Object.entries(cur).filter(([k]) => !PEOPLE_COLS.has(k) && k !== "_family"));
+        out.push(...check(await sb.from("gl_people").update({ ...real, extra: { ...mine, ...ex } }).eq("id", id).select()).map(fromDb));
+      }
+      return out;
+    },
     deletePeople: async (ids) => (ids.length ? check(await sb.from("gl_people").delete().in("id", ids)) : null),
     // Settings live in their own table so the rest of the app works before its SQL has been run.
     loadSettings: async () => {
@@ -279,7 +317,7 @@ function makeSupabaseApi() {
         .subscribe();
       sb.channel("guests")
         .on("postgres_changes", { event: "*", schema: "public", table: "gl_families" }, (p) => onChange("families", p))
-        .on("postgres_changes", { event: "*", schema: "public", table: "gl_people" }, (p) => onChange("people", p))
+        .on("postgres_changes", { event: "*", schema: "public", table: "gl_people" }, (p) => onChange("people", p.new && p.new.id ? { ...p, new: fromDb(p.new) } : p))
         .subscribe();
     },
   };
@@ -387,6 +425,12 @@ function removeLocal(table, id) {
   if (table === "families") state.people = state.people.filter((p) => p.family_id !== id);
 }
 
+// Fill in a default for any field a person has no answer for yet (for example a newly switched-on event).
+function hydrate() {
+  const fields = Fields.list("person");
+  for (const p of state.people) for (const f of fields) if (p[f.key] === undefined) p[f.key] = PERSON_DEFAULTS[f.key];
+}
+
 // Families with their people attached and rollups filled in.
 function familyViews() {
   const byFam = new Map();
@@ -464,6 +508,7 @@ const visiblePeople = (fams) => fams.flatMap((f) => f.people.filter(personMatche
 // ---------- Rendering ----------
 
 function render() {
+  hydrate();
   renderTabs();
   if (state.tab === "settings") {
     if (!$("#settings-view").firstChild) Settings.render(); // don't rebuild it under someone mid-edit
@@ -552,22 +597,21 @@ function renderStats() {
   const tiles = [];
 
   // A card for a person-level answer field like RSVP: the "Yes" count big, the other values smaller.
+  // People marked "n/a" (not invited to that event) don't count toward "invited".
   const answerCard = (cls, title, key, weight, only) => {
     if (!has("person", key, "Yes")) return;
     const r = withoutFilter(key, (fams) => {
       const people = visiblePeople(fams).filter(only || (() => true));
-      return { t: tally(people, key, weight), invited: sum(people, weight) };
+      return { t: tally(people, key, weight), invited: sum(people.filter((p) => p[key] !== "n/a"), weight) };
     });
     const others = Fields.optionValues("person", key).filter((v) => v !== "Yes");
     tiles.push(`<div class="stat ${cls}">
-      <span>${esc(title)}${title === Fields.get("person", "rsvp").label && filtered ? " (this view)" : ""}</span>
+      <span>${esc(title)}${key === "rsvp" && filtered ? " (this view)" : ""}</span>
       <strong>${chip(key, "Yes", n(r.t.Yes), lower("Yes"), true)} <small>of ${r.invited} invited</small></strong>
-      <em>${others.map((v) => chip(key, v, n(r.t[v]), lower(v))).join(" · ")}</em>
+      <em>${others.filter((v) => v !== "n/a" || r.t[v]).map((v) => chip(key, v, n(r.t[v]), lower(v))).join(" · ")}</em>
     </div>`);
   };
   answerCard("s-rsvp", Fields.get("person", "rsvp").label, "rsvp", "invited");
-  if (isOn("person", "rd_invited"))
-    answerCard("s-rd", Fields.get("person", "rd_status")?.label || "Rehearsal dinner", "rd_status", "rd_invited", (p) => Number(p.rd_invited) > 0);
 
   if (has("family", "hotel_status", "Yes Host Hotel") && has("family", "hotel_status", "Maybe Host Hotel")) {
     const hotel = withoutFilter("hotel_status", (fams) => ({
@@ -580,14 +624,11 @@ function renderStats() {
       <em>${hotel.yes + hotel.maybe} rooms if every maybe comes</em>
     </div>`);
   }
-  if (has("person", "afterparty", "Yes")) {
-    const ap = withoutFilter("afterparty", (fams) => tally(visiblePeople(fams), "afterparty", "invited"));
-    const others = Fields.optionValues("person", "afterparty").filter((v) => v !== "Yes");
-    tiles.push(`<div class="stat s-ap">
-      <span>${esc(Fields.get("person", "afterparty").label)}</span>
-      <strong>${chip("afterparty", "Yes", n(ap.Yes), "yes", true)}</strong>
-      <em>${others.map((v) => chip("afterparty", v, n(ap[v]), lower(v))).join(" · ")}</em>
-    </div>`);
+  // One card per related event that is switched on.
+  for (const ev of Fields.events()) {
+    if (!ev.enabled) continue;
+    const rd = ev.rsvpKey === "rd_status" && isOn("person", "rd_invited");
+    answerCard(`s-ev s-${ev.id}`, ev.name, ev.rsvpKey, rd ? "rd_invited" : "invited", rd ? (p) => Number(p.rd_invited) > 0 : null);
   }
   $("#stats").innerHTML = tiles.join("");
 }
@@ -732,7 +773,9 @@ function renderDialog() {
     <div class="sheet-head"><h2>${draft.id ? "Edit family" : "Add family"}</h2><button type="button" class="x" data-close aria-label="Close">✕</button></div>
     <div class="sheet-body">
       <div class="fam-groups">
-        ${FAMILY_GROUPS.map((g) => `<fieldset class="fgroup"><legend>${esc(g.title)}</legend><div class="form-grid">${g.keys.map(familyFieldHtml).join("")}</div></fieldset>`).join("")}
+        ${["L", "R"]
+          .map((side) => `<div class="fam-col">${FAMILY_GROUPS.filter((g) => g.side === side).map((g) => `<fieldset class="fgroup"><legend>${esc(g.title)}</legend><div class="form-grid">${g.keys.map(familyFieldHtml).join("")}</div></fieldset>`).join("")}</div>`)
+          .join("")}
       </div>
       <h3 class="people-title">People <span class="muted">(${draft.people.length})</span></h3>
       <div class="people">${draft.people.map(personCardHtml).join("")}</div>
